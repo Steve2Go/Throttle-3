@@ -10,6 +10,7 @@ import SwiftData
 
 @Model
 final class Servers {
+    var name : String = ""
     var id: UUID = UUID()
     var url: String = ""
     var sshHost: String = ""
@@ -32,7 +33,8 @@ final class Servers {
     var sftpBase: String = ""
     var useTailscale: Bool = false
     
-    init(id: UUID = UUID(), url: String = "", user: String = "", sshOn: Bool = false, sshHost: String = "", sshUser: String = "", sshUsesKey: Bool = false, sftpBase: String = "", useTailscale: Bool = false) {
+    init(name: String = "", id: UUID = UUID(), url: String = "", user: String = "", sshOn: Bool = false, sshHost: String = "", sshUser: String = "", sshUsesKey: Bool = false, sftpBase: String = "", useTailscale: Bool = false) {
+        self.name = name
         self.id = id
         self.url = url
         self.user = user

@@ -8,14 +8,19 @@
 import SwiftUI
 
 
-struct ConnectingView: View {
-    var icon: String = "ellipsis"
+struct FirstRunView: View {
     
     var body: some View {
         ContentUnavailableView{
-            Label("Connecting", systemImage: icon)
-                .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.0)))
+            Label("Welcome.\nAdd a server to get started", systemImage: "figure.wave")
         }
+        BasicSettings()
+        Button("Add your first Server"){
+            
+        }
+        .padding(.top)
+        .buttonStyle(.bordered)
+        Spacer()
     }
     
 }

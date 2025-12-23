@@ -222,6 +222,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
+					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Throttle 3/Info.plist";
@@ -285,6 +286,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
+					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 				);

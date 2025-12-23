@@ -53,9 +53,6 @@ struct Throttle_3App: App {
         } catch {
             print("ModelContainer creation failed with error: \(error)")
             print("CloudKit enabled: \(syncServers || syncSettings)")
-            print("Check: 1) iCloud container is selected in Xcode Signing & Capabilities")
-            print("       2) iCloud is enabled for your Apple ID in System Settings")
-            print("       3) You're signed into iCloud in Xcode")
             fatalError("Could not create ModelContainer: \(error)")
         }
     }
