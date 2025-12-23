@@ -1,0 +1,11 @@
+# Frameworks
+Throttle 3/Frameworks/
+
+# Xcode
+*.xcuserstate
+*.xcuserdatad
+project.xcworkspace/xcuserdata/
+xcuserdata/
+
+# macOS
+.DS_Store
