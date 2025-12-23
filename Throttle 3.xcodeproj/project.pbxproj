@@ -6,6 +6,24 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		E752CAA82EFA03BA00EA4E24 /* Transmission in Frameworks */ = {isa = PBXBuildFile; productRef = E752CAA72EFA03BA00EA4E24 /* Transmission */; };
+		E752CACE2EFA066700EA4E24 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = E752CACD2EFA066700EA4E24 /* KeychainAccess */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		E7E83AC92EFA11E30000B55B /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		E752CA8E2EF9FFDE00EA4E24 /* Throttle 3.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Throttle 3.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -16,15 +34,45 @@
 			membershipExceptions = (
 				Info.plist,
 			);
+			platformFiltersByRelativePath = {
+				Frameworks/MobileVLCKit.xcframework = (ios, );
+				Frameworks/SshLib.xcframework = (ios, );
+				Frameworks/TailscaleKit.framework = (ios, );
+			};
 			target = E752CA8D2EF9FFDE00EA4E24 /* Throttle 3 */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		E7E83ACA2EFA11E30000B55B /* Exceptions for "Throttle 3" folder in "Embed Frameworks" phase from "Throttle 3" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			attributesByRelativePath = {
+				Frameworks/MobileVLCKit.xcframework = (CodeSignOnCopy, RemoveHeadersOnCopy, );
+				Frameworks/SshLib.xcframework = (CodeSignOnCopy, RemoveHeadersOnCopy, );
+				Frameworks/TailscaleKit.framework = (CodeSignOnCopy, RemoveHeadersOnCopy, );
+				Frameworks/mft.xcframework = (CodeSignOnCopy, RemoveHeadersOnCopy, );
+			};
+			buildPhase = E7E83AC92EFA11E30000B55B /* Embed Frameworks */;
+			membershipExceptions = (
+				Frameworks/mft.xcframework,
+				Frameworks/MobileVLCKit.xcframework,
+				Frameworks/SshLib.xcframework,
+				Frameworks/TailscaleKit.framework,
+			);
+			platformFiltersByRelativePath = {
+				Frameworks/MobileVLCKit.xcframework = (ios, );
+				Frameworks/SshLib.xcframework = (ios, );
+				Frameworks/TailscaleKit.framework = (ios, );
+			};
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		E752CA902EF9FFDE00EA4E24 /* Throttle 3 */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				E752CA9B2EF9FFE100EA4E24 /* Exceptions for "Throttle 3" folder in "Throttle 3" target */,
+				E7E83ACA2EFA11E30000B55B /* Exceptions for "Throttle 3" folder in "Embed Frameworks" phase from "Throttle 3" target */,
 			);
 			path = "Throttle 3";
 			sourceTree = "<group>";
@@ -36,6 +84,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E752CACE2EFA066700EA4E24 /* KeychainAccess in Frameworks */,
+				E752CAA82EFA03BA00EA4E24 /* Transmission in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -68,6 +118,7 @@
 				E752CA8A2EF9FFDE00EA4E24 /* Sources */,
 				E752CA8B2EF9FFDE00EA4E24 /* Frameworks */,
 				E752CA8C2EF9FFDE00EA4E24 /* Resources */,
+				E7E83AC92EFA11E30000B55B /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -78,6 +129,8 @@
 			);
 			name = "Throttle 3";
 			packageProductDependencies = (
+				E752CAA72EFA03BA00EA4E24 /* Transmission */,
+				E752CACD2EFA066700EA4E24 /* KeychainAccess */,
 			);
 			productName = "Throttle 3";
 			productReference = E752CA8E2EF9FFDE00EA4E24 /* Throttle 3.app */;
@@ -107,6 +160,10 @@
 			);
 			mainGroup = E752CA852EF9FFDE00EA4E24;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				E752CAA62EFA03BA00EA4E24 /* XCRemoteSwiftPackageReference "Transmission-Swift" */,
+				E752CACC2EFA066700EA4E24 /* XCRemoteSwiftPackageReference "KeychainAccess" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E752CA8F2EF9FFDE00EA4E24 /* Products */;
 			projectDirPath = "";
@@ -143,15 +200,33 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Throttle 3/Throttle 3.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 93C9M7982M;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
+					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Throttle 3/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Throttle;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -162,23 +237,25 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				MARKETING_VERSION = "3.0-a";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.srgim.Throttle-3";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TARGETED_DEVICE_FAMILY = "1,2";
 				XROS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Debug;
@@ -188,15 +265,33 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Throttle 3/Throttle 3.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 93C9M7982M;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
+					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Throttle 3/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Throttle;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -207,23 +302,25 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				MARKETING_VERSION = "3.0-a";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.srgim.Throttle-3";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TARGETED_DEVICE_FAMILY = "1,2";
 				XROS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Release;
@@ -366,6 +463,38 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		E752CAA62EFA03BA00EA4E24 /* XCRemoteSwiftPackageReference "Transmission-Swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/jameshurst/Transmission-Swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.2;
+			};
+		};
+		E752CACC2EFA066700EA4E24 /* XCRemoteSwiftPackageReference "KeychainAccess" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kishikawakatsumi/KeychainAccess";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E752CAA72EFA03BA00EA4E24 /* Transmission */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E752CAA62EFA03BA00EA4E24 /* XCRemoteSwiftPackageReference "Transmission-Swift" */;
+			productName = Transmission;
+		};
+		E752CACD2EFA066700EA4E24 /* KeychainAccess */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E752CACC2EFA066700EA4E24 /* XCRemoteSwiftPackageReference "KeychainAccess" */;
+			productName = KeychainAccess;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E752CA862EF9FFDE00EA4E24 /* Project object */;
 }

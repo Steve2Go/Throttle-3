@@ -1,6 +1,7 @@
 {
   "images" : [
     {
+      "filename" : "any.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -12,6 +13,7 @@
           "value" : "dark"
         }
       ],
+      "filename" : "dark.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -23,21 +25,25 @@
           "value" : "tinted"
         }
       ],
+      "filename" : "tint.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
     },
     {
+      "filename" : "Icon-mac16.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "16x16"
     },
     {
+      "filename" : "Icon-mac32 1.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "16x16"
     },
     {
+      "filename" : "Icon-mac32 2.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "32x32"
@@ -48,31 +54,37 @@
       "size" : "32x32"
     },
     {
+      "filename" : "Icon-mac128.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "128x128"
     },
     {
+      "filename" : "Icon-mac256 1.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "128x128"
     },
     {
+      "filename" : "Icon-mac256.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "256x256"
     },
     {
+      "filename" : "Icon-mac512 1.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "256x256"
     },
     {
+      "filename" : "Icon-mac512.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "512x512"
     },
     {
+      "filename" : "Icon-mac.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "512x512"
