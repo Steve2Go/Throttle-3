@@ -229,3 +229,342 @@ class SimpleLogger: LogSink {
     }
 }
 #endif
+
+// MARK: - macOS Implementation
+
+#if os(macOS)
+class TailscaleManager: ObservableObject {
+    private static var _shared: TailscaleManager?
+    private static let lock = NSLock()
+    
+    static var shared: TailscaleManager {
+        lock.lock()
+        defer { lock.unlock() }
+        
+        if _shared == nil {
+            _shared = TailscaleManager()
+        }
+        return _shared!
+    }
+    
+    @Published var isConnected: Bool = false
+    @Published var isConnecting: Bool = false
+    @Published var errorMessage: String?
+    @Published var showDownloadSheet: Bool = false
+    
+    private var cliPath: String?
+    private var statusCheckTimer: Timer?
+    private var isInitialized = false
+    private var isMonitoring = false
+    
+    private init() {
+        // Do nothing during init - defer all work
+    }
+    
+    @MainActor
+    private func ensureInitialized() {
+        guard !isInitialized else { return }
+        isInitialized = true
+        detectCLI()
+    }
+    
+    // MARK: - CLI Detection
+    
+    private func detectCLI() {
+        // Try system PATH first (Standalone with CLI integration)
+        if let whichPath = runCommand("/usr/bin/which", args: ["tailscale"]), !whichPath.isEmpty {
+            cliPath = whichPath.trimmingCharacters(in: .whitespacesAndNewlines)
+            print("✓ Found Tailscale CLI at: \(cliPath!)")
+            return
+        }
+        
+        // Try App Store/Standalone bundle location
+        let bundlePath = "/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+        if FileManager.default.fileExists(atPath: bundlePath) {
+            cliPath = bundlePath
+            print("✓ Found Tailscale app at: \(bundlePath)")
+            return
+        }
+        
+        print("⚠️ Tailscale not found")
+        cliPath = nil
+    }
+    
+    // MARK: - Connection Management
+    
+    @MainActor
+    func connect() async {
+        ensureInitialized()
+        
+        guard !isConnecting else { return }
+        
+        // Check if CLI is available
+        guard let path = cliPath else {
+            showDownloadSheet = true
+            return
+        }
+        
+        isConnecting = true
+        errorMessage = nil
+        
+        // Check current status first
+        checkStatus()
+        
+        // If already connected, we're done
+        if isConnected {
+            isConnecting = false
+            print("✓ Already connected to Tailscale")
+            return
+        }
+        
+        // Run tailscale up
+        let output = runCommand(path, args: ["up"])
+        
+        // Wait a moment for connection to establish
+        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        
+        // Start rapid checking for 15 seconds while connecting
+        startRapidStatusChecking()
+        
+        // Check status
+        checkStatus()
+        
+        if !isConnected {
+            // Only show error if there's actual output indicating a problem
+            if let output = output, !output.isEmpty, output.contains("error") || output.contains("Error") {
+                errorMessage = "Connection failed"
+                print("❌ Tailscale connection error: \(output)")
+            }
+        }
+        
+        isConnecting = false
+    }
+    
+    @MainActor
+    func disconnect() async {
+        ensureInitialized()
+        
+        guard let path = cliPath else { return }
+        
+        // Run tailscale down
+        _ = runCommand(path, args: ["down"])
+        
+        // Update status immediately
+        checkStatus()
+        
+        // Wipe the auth
+        UserDefaults.standard.removeObject(forKey: "TailscaleAuth")
+        
+        print("✓ Tailscale disconnected")
+    }
+    
+    // MARK: - Status Checking
+    
+    @MainActor
+    func checkStatus() {
+        ensureInitialized()
+        
+        guard let path = cliPath else {
+            isConnected = false
+            return
+        }
+        
+        // Get status (plain text, not JSON)
+        guard let statusOutput = runCommand(path, args: ["status"]) else {
+            isConnected = false
+            return
+        }
+        
+        // Update connection state
+        let wasConnected = isConnected
+        
+        // Check if Tailscale is stopped
+        if statusOutput.contains("Tailscale is stopped") {
+            isConnected = false
+        } else if !statusOutput.isEmpty && statusOutput.contains("100.") {
+            // If we have output with Tailscale IPs (100.x.x.x), it's running
+            isConnected = true
+        } else {
+            isConnected = false
+        }
+        
+        // Store auth state
+        if isConnected && !wasConnected {
+            UserDefaults.standard.set("connected", forKey: "TailscaleAuth")
+           // print("✓ Tailscale connected")
+        } else if !isConnected && wasConnected {
+            UserDefaults.standard.removeObject(forKey: "TailscaleAuth")
+          //  print("✓ Tailscale disconnected")
+        }
+    }
+    
+    @MainActor
+    func startStatusMonitoring() {
+        guard !isMonitoring else { return }
+        ensureInitialized()
+        
+        isMonitoring = true
+        stopStatusMonitoring()
+        
+        // Do an immediate check
+        checkStatus()
+        
+        // Start with rapid checking (3 seconds) for initial state
+        startRapidStatusChecking()
+        
+        // After 15 seconds, switch to slow checking
+        Task {
+            try? await Task.sleep(nanoseconds: 15_000_000_000) // 15 seconds
+            await switchToSlowStatusChecking()
+        }
+    }
+    
+    @MainActor
+    private func startRapidStatusChecking() {
+        stopStatusMonitoring()
+        
+        // Check every 3 seconds (rapid)
+        statusCheckTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.checkStatus()
+            }
+        }
+      //  print("🔄 Started rapid status checking (3s)")
+    }
+    
+    @MainActor
+    private func switchToSlowStatusChecking() {
+        guard isMonitoring else { return }
+        stopStatusMonitoring()
+        
+        // Check every 15 seconds (background)
+        statusCheckTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.checkStatus()
+            }
+        }
+      //  print("🔄 Switched to slow status checking (15s)")
+    }
+    
+    @MainActor
+    func stopStatusMonitoring() {
+        statusCheckTimer?.invalidate()
+        statusCheckTimer = nil
+        isMonitoring = false
+    }
+    
+    // MARK: - Command Execution
+    
+    private func runCommand(_ command: String, args: [String]) -> String? {
+        let process = Process()
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        
+        process.launchPath = command
+        process.arguments = args
+        process.standardOutput = outputPipe
+        process.standardError = errorPipe
+        
+        // Force CLI mode for Tailscale executable
+        var environment = ProcessInfo.processInfo.environment
+        environment["TAILSCALE_BE_CLI"] = "1"
+        process.environment = environment
+        
+        do {
+          //  print("🔧 Running: \(command) \(args.joined(separator: " "))")
+            try process.run()
+            process.waitUntilExit()
+            
+            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+            
+            let output = String(data: outputData, encoding: .utf8) ?? ""
+            let error = String(data: errorData, encoding: .utf8) ?? ""
+            
+           // print("🔧 Exit code: \(process.terminationStatus)")
+            // if !output.isEmpty {
+            //     print("🔧 Output length: \(output.count)")
+            // }
+            // if !error.isEmpty {
+            //     print("🔧 Error output: \(error)")
+            // }
+            
+            return output.isEmpty ? error : output
+        } catch {
+          //  print("❌ Failed to run command: \(error)")
+            return nil
+        }
+    }
+}
+
+// MARK: - Status Models
+
+struct TailscaleStatus: Codable {
+    let BackendState: String
+    let selfNode: NodeInfo?
+    
+    enum CodingKeys: String, CodingKey {
+        case BackendState
+        case selfNode = "Self"
+    }
+    
+    struct NodeInfo: Codable {
+        let HostName: String?
+        let TailscaleIPs: [String]?
+    }
+}
+
+// MARK: - Download Sheet View
+
+struct TailscaleDownloadSheet: View {
+    @Binding var isPresented: Bool
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "network.slash")
+                .font(.system(size: 60))
+                .foregroundStyle(.secondary)
+            
+            Text("Tailscale Not Installed")
+                .font(.title)
+                .fontWeight(.semibold)
+            
+            Text("Tailscale is required to connect over your tailnet. Please install it to continue.")
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal)
+            
+            VStack(spacing: 12) {
+                Button(action: {
+                    if let url = URL(string: "https://apps.apple.com/au/app/tailscale/id1475387142?mt=12") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: "app.badge")
+                        Text("Download from App Store")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.accentColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                
+                Text("Or download from [tailscale.com/download](https://tailscale.com/download)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+            
+            Button("Dismiss") {
+                isPresented = false
+            }
+            .padding(.bottom)
+        }
+        .frame(width: 400)
+        .padding()
+    }
+}
+#endif

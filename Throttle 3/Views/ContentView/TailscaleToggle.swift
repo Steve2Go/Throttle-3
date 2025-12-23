@@ -8,15 +8,21 @@
 import SwiftUI
 
 struct TailscaleToggle: View {
-    @StateObject private var manager = TailscaleManager.shared
-    @AppStorage("TailscaleAuth") var tailscaleAuth: String?
+    @ObservedObject private var manager = TailscaleManager.shared
+    @AppStorage("TailscaleEnabled") private var tailscaleEnabled = false
     
+    #if os(iOS)
+    var label: String = "Connect Over Tailscale"
+    #else
+    var label: String = "Managed Tailscale Connection"
+    #endif
     var body: some View {
         List {
             Section("Tailscale") {
-                Toggle("Connect Over Tailscale", isOn: Binding(
-                    get: { manager.isConnected || manager.isConnecting },
+                Toggle(label, isOn: Binding(
+                    get: { tailscaleEnabled },
                     set: { enabled in
+                        tailscaleEnabled = enabled
                         Task {
                             if enabled {
                                 await manager.connect()
@@ -53,5 +59,24 @@ struct TailscaleToggle: View {
             }
         }
         .scrollContentBackground(.hidden)
+        #if os(iOS)
+        .onOpenURL { url in
+            // Handle Tailscale auth callback
+            if url.scheme == "throttle" {
+                print("✓ Received auth callback URL")
+            }
+        }
+        #endif
+        #if os(macOS)
+        .sheet(isPresented: $manager.showDownloadSheet) {
+            TailscaleDownloadSheet(isPresented: $manager.showDownloadSheet)
+        }
+        .onAppear {
+            manager.startStatusMonitoring()
+        }
+        .onDisappear {
+            manager.stopStatusMonitoring()
+        }
+        #endif
     }
 }
