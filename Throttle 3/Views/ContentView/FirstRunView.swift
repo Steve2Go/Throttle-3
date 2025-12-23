@@ -15,6 +15,7 @@ struct FirstRunView: View {
             Label("Welcome.\nAdd a server to get started", systemImage: "figure.wave")
         }
         BasicSettings()
+        TailscaleToggle()
         Button("Add your first Server"){
             
         }
