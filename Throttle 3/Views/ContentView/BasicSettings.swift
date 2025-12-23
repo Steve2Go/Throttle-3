@@ -19,7 +19,7 @@ struct BasicSettings: View {
                 
                 Toggle("Sync Servers", isOn: $syncServers)
                 #if os(macOS)
-                Toggle("Sync Local Servers", isOn: $syncLocalServers)
+                Toggle("Sync Local Server", isOn: $syncLocalServers)
                 #endif
                 Toggle("Sync Authentication", isOn: $syncKeychain)
                 Toggle("Sync Settings", isOn: $syncSettings)
