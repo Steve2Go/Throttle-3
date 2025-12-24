@@ -18,6 +18,7 @@ struct ServerView: View {
     
     @State private var password: String = ""
     @State private var sshKey: String = ""
+    @State private var sshPassword: String = ""
     
     init(server: Servers? = nil) {
         if let server = server {
@@ -29,14 +30,15 @@ struct ServerView: View {
     }
     
     var body: some View {
-        Form {
-            Section("Transmission Settings") {
-                TextField("Server Name", text: $server.name)
-                TextField("URL", text: $server.url)
-                    .textContentType(.URL)
-                #if os(iOS)
-                    .autocapitalization(.none)
-                #endif
+        NavigationStack {
+            Form {
+                Section("Transmission") {
+                    TextField("Server Name", text: $server.name)
+                    TextField("URL", text: $server.url)
+                        .textContentType(.URL)
+                    #if os(iOS)
+                        .autocapitalization(.none)
+                    #endif
                 TextField("Username", text: $server.user)
                     .textContentType(.username)
 #if os(iOS)
@@ -45,12 +47,13 @@ struct ServerView: View {
                 SecureField("Password", text: $password)
                     .textContentType(.password)
             }
-            
-            Section("Tunnel") {
-                Toggle("Use Tailscale", isOn: $server.useTailscale)
+            #if os(macOS)
+            .padding(.bottom, 20)
+            #endif
+            Section("Tunnels & SSH") {
+                Toggle("Tunnel Over Tailscale", isOn: $server.useTailscale)
                 Toggle("Use SSH", isOn: $server.sshOn)
-                
-                if server.sshOn {
+                 if server.sshOn {
                     TextField("SSH Host", text: $server.sshHost)
 #if os(iOS)
     .autocapitalization(.none)
@@ -60,7 +63,8 @@ struct ServerView: View {
 #if os(iOS)
     .autocapitalization(.none)
 #endif
-                    Toggle("Use SSH Key", isOn: $server.sshUsesKey)
+
+
                     
                     if server.sshUsesKey {
                         TextEditor(text: $sshKey)
@@ -70,19 +74,57 @@ struct ServerView: View {
                                 RoundedRectangle(cornerRadius: 8)
                                     .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
                             )
+                    } else {
+                        SecureField("SSH Password", text: $sshPassword)
+                            .textContentType(.password)
                     }
+                     Toggle("Use SSH Key", isOn: $server.sshUsesKey)
+                   
+                }
+                
+                if server.sshOn {
+                    Toggle("Tunnel Web Over SSH", isOn: $server.tunnelWebOverSSH)
+                    Toggle("Serve Files", isOn: $server.serveFilesOverTunnels)
+
+                    
+                    
                 }
             }
+            #if os(macOS)
+            .padding(.bottom, 20)
+            #endif
             
-            Section("File Transfer") {
-                TextField("SFTP Base Path", text: $server.sftpBase)
-#if os(iOS)
-    .autocapitalization(.none)
-#endif
+            if server.serveFilesOverTunnels {
+                Section("File Transfer") {
+                    Toggle("Tunnel Files Over SSH", isOn: $server.tunnelFilesOverSSH)
+                    Text("File transfer must be secured by Tailscale and or SSH")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+//
+//                    TextField("Files Port(optional)", text: $server.tunnelPort)
+//#if os(iOS)
+//    .autocapitalization(.none)
+//
+//                        .keyboardType(.numberPad)
+//#endif
+//                    TextField("Port", text: $server.reverseProxyPort)
+//#if os(iOS)
+//    .autocapitalization(.none)
+//
+//                        .keyboardType(.numberPad)
+//#endif
+//                    
+//                    TextField("SFTP Base Path", text: $server.sftpBase)
+//#if os(iOS)
+//    .autocapitalization(.none)
+//#endif
+                }
             }
-            
         }
         .navigationTitle("Server Settings")
+            #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+            #endif
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") {
@@ -102,11 +144,13 @@ struct ServerView: View {
         .onAppear {
             loadSecrets()
         }
+        }
     }
     
     private func loadSecrets() {
         password = keychain["\(server.id.uuidString)-password"] ?? ""
         sshKey = keychain["\(server.id.uuidString)-sshkey"] ?? ""
+        sshPassword = keychain["\(server.id.uuidString)-sshpassword"] ?? ""
     }
     
     private func saveSecrets() {
@@ -115,6 +159,9 @@ struct ServerView: View {
         }
         if !sshKey.isEmpty {
             keychain["\(server.id.uuidString)-sshkey"] = sshKey
+        }
+        if !sshPassword.isEmpty {
+            keychain["\(server.id.uuidString)-sshpassword"] = sshPassword
         }
         try? modelContext.save()
     }

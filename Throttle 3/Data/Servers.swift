@@ -30,10 +30,15 @@ final class Servers {
     var sshOn: Bool = false
     var sshUser: String = ""
     var sshUsesKey: Bool = false
+    var tunnelWebOverSSH: Bool = false
+    var tunnelFilesOverSSH: Bool = false
+    var tunnelPort: String = ""
+    var reverseProxyPort: String = ""
     var sftpBase: String = ""
     var useTailscale: Bool = false
+    var serveFilesOverTunnels: Bool = false
     
-    init(name: String = "", id: UUID = UUID(), url: String = "", user: String = "", sshOn: Bool = false, sshHost: String = "", sshUser: String = "", sshUsesKey: Bool = false, sftpBase: String = "", useTailscale: Bool = false) {
+    init(name: String = "", id: UUID = UUID(), url: String = "", user: String = "", sshOn: Bool = false, sshHost: String = "", sshUser: String = "", sshUsesKey: Bool = false, tunnelWebOverSSH: Bool = false, tunnelFilesOverSSH: Bool = false, tunnelPort: String = "", reverseProxyPort: String = "", sftpBase: String = "", useTailscale: Bool = false, serveFilesOverTunnels: Bool = false) {
         self.name = name
         self.id = id
         self.url = url
@@ -42,7 +47,12 @@ final class Servers {
         self.sshOn = sshOn
         self.sshUser = sshUser
         self.sshUsesKey = sshUsesKey
+        self.tunnelWebOverSSH = tunnelWebOverSSH
+        self.tunnelFilesOverSSH = tunnelFilesOverSSH
+        self.tunnelPort = tunnelPort
+        self.reverseProxyPort = reverseProxyPort
         self.sftpBase = sftpBase
         self.useTailscale = useTailscale
+        self.serveFilesOverTunnels = serveFilesOverTunnels
     }
 }
