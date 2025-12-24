@@ -19,6 +19,15 @@ struct ServerView: View {
     @State private var password: String = ""
     @State private var sshKey: String = ""
     
+    init(server: Servers? = nil) {
+        if let server = server {
+            self.server = server
+        } else {
+            // Create a new server
+            self.server = Servers()
+        }
+    }
+    
     var body: some View {
         Form {
             Section("Transmission Settings") {
@@ -87,6 +96,9 @@ struct ServerView: View {
                 }
             }
         }
+        #if os(macOS)
+        .padding()
+        #endif
         .onAppear {
             loadSecrets()
         }

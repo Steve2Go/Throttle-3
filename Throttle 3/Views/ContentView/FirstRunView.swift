@@ -6,9 +6,14 @@
 //
 
 import SwiftUI
-
+import SwiftData
 
 struct FirstRunView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query private var servers: [Servers]
+    
+    @State private var showAddServer = false
+    @State private var checkServers = 0
     
     var body: some View {
         ContentUnavailableView{
@@ -16,11 +21,21 @@ struct FirstRunView: View {
         }
         BasicSettings()
         TailscaleToggle()
-        Button("Add your first Server"){
+        Button("Server Information"){
+            // Force re-check servers in case CloudKit synced
+            checkServers += 1
             
+            // Only show sheet if still no servers
+            if servers.isEmpty {
+                showAddServer = true
+            }
         }
         .padding(.top)
         .buttonStyle(.bordered)
+        .sheet(isPresented: $showAddServer) {
+            ServerView()
+        }
+        .id(checkServers) // Force view refresh when checkServers changes
         Spacer()
     }
     

@@ -59,23 +59,30 @@ struct TailscaleToggle: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .onAppear {
+            #if os(macOS)
+            manager.startStatusMonitoring()
+            #else
+            // iOS: Check connection status on appear
+            Task {
+                await manager.checkConnectionStatus()
+            }
+            #endif
+        }
+        #if os(macOS)
+        .onDisappear {
+            manager.stopStatusMonitoring()
+        }
+        .sheet(isPresented: $manager.showDownloadSheet) {
+            TailscaleDownloadSheet(isPresented: $manager.showDownloadSheet)
+        }
+        #endif
         #if os(iOS)
         .onOpenURL { url in
             // Handle Tailscale auth callback
             if url.scheme == "throttle" {
                 print("✓ Received auth callback URL")
             }
-        }
-        #endif
-        #if os(macOS)
-        .sheet(isPresented: $manager.showDownloadSheet) {
-            TailscaleDownloadSheet(isPresented: $manager.showDownloadSheet)
-        }
-        .onAppear {
-            manager.startStatusMonitoring()
-        }
-        .onDisappear {
-            manager.stopStatusMonitoring()
         }
         #endif
     }

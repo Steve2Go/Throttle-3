@@ -24,14 +24,14 @@ class TailscaleManager: ObservableObject {
     @Published var authURL: URL?
     
     
-    private var node: TailscaleNode?
+    var node: TailscaleNode?
     private var localAPIClient: LocalAPIClient?
     private var messageProcessor: MessageProcessor?
     private var safariViewController: SFSafariViewController?
     
     private init() {
-        // Load stored auth state
-        isConnected = UserDefaults.standard.string(forKey: "TailscaleAuth") != nil
+        // Don't load stored auth state - check actual status instead
+        isConnected = false
     }
     
     // MARK: - Connection Management
@@ -50,13 +50,20 @@ class TailscaleManager: ObservableObject {
             
             try FileManager.default.createDirectory(at: dataDir, withIntermediateDirectories: true)
             
-            // Get stored auth key if we have one
-            let storedAuth = UserDefaults.standard.string(forKey: "TailscaleAuth")
+            // Get device name for hostname
+            #if os(iOS)
+            let deviceName = UIDevice.current.name
+            #else
+            let deviceName = Host.current().localizedName ?? "Mac"
+            #endif
+            let hostname = "Throttle-\(deviceName.replacingOccurrences(of: " ", with: "-"))"
             
+            // Don't pass stored auth - Tailscale persists auth in its state files
+            // If user needs to re-auth, they'll get the Safari flow
             let config = Configuration(
-                hostName: "Throttle-iOS",
+                hostName: hostname,
                 path: dataDir.path,
-                authKey: storedAuth,
+                authKey: nil,
                 controlURL: kDefaultControlURL,
                 ephemeral: true
             )
@@ -99,9 +106,6 @@ class TailscaleManager: ObservableObject {
             localAPIClient = nil
             self.node = nil
             
-            // Wipe the auth
-            UserDefaults.standard.removeObject(forKey: "TailscaleAuth")
-            
             isConnected = false
             isConnecting = false
             authURL = nil
@@ -128,11 +132,44 @@ class TailscaleManager: ObservableObject {
         isConnected = true
         dismissSafariViewController()
         
-        // Store a simple connected flag
-        // The auth key is already stored in the node's data directory
-        UserDefaults.standard.set("connected", forKey: "TailscaleAuth")
-        
         print("✓ Tailscale connected")
+    }
+    
+    // MARK: - Status Checking
+    
+    func checkConnectionStatus() async {
+        // Check if we have a node and it's actually running
+        guard let localAPIClient = localAPIClient else {
+            // No node exists, clear connected state
+            isConnected = false
+            isConnecting = false
+            return
+        }
+        
+        do {
+            let status = try await localAPIClient.backendStatus()
+            
+            // Update connection state based on backend status
+            switch status.BackendState {
+            case "Running":
+                isConnected = true
+                isConnecting = false
+            case "Starting":
+                isConnected = false
+                isConnecting = true
+            default:
+                isConnected = false
+                isConnecting = false
+            }
+            
+            print("📊 iOS Tailscale status: \(status.BackendState)")
+            
+        } catch {
+            // If we can't get status, assume disconnected
+            isConnected = false
+            isConnecting = false
+            print("⚠️ Failed to check Tailscale status: \(error)")
+        }
     }
     
     // MARK: - Safari View Controller
@@ -415,18 +452,18 @@ class TailscaleManager: ObservableObject {
         // After 15 seconds, switch to slow checking
         Task {
             try? await Task.sleep(nanoseconds: 15_000_000_000) // 15 seconds
-            await switchToSlowStatusChecking()
+            switchToSlowStatusChecking()
         }
     }
     
-    @MainActor
     private func startRapidStatusChecking() {
         stopStatusMonitoring()
         
         // Check every 3 seconds (rapid)
         statusCheckTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
             Task { @MainActor in
-                self?.checkStatus()
+                self.checkStatus()
             }
         }
       //  print("🔄 Started rapid status checking (3s)")
@@ -439,8 +476,9 @@ class TailscaleManager: ObservableObject {
         
         // Check every 15 seconds (background)
         statusCheckTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
             Task { @MainActor in
-                self?.checkStatus()
+                self.checkStatus()
             }
         }
       //  print("🔄 Switched to slow status checking (15s)")
