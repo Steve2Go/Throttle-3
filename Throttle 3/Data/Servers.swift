@@ -41,7 +41,7 @@ final class Servers {
     var useTailscale: Bool = false
     var serveFilesOverTunnels: Bool = false
     
-    init(name: String = "", id: UUID = UUID(), serverAddress: String = "", serverPort: String = "", usesSSL: Bool = true, url: String = "", user: String = "", sshOn: Bool = false, sshHost: String = "", sshUser: String = "", sshUsesKey: Bool = false, tunnelWebOverSSH: Bool = false, tunnelFilesOverSSH: Bool = false, tunnelPort: String = "", reverseProxyPort: String = "", sftpBase: String = "", useTailscale: Bool = false, serveFilesOverTunnels: Bool = false) {
+    init(name: String = "", id: UUID = UUID(), serverAddress: String = "", serverPort: String = "", usesSSL: Bool = false, url: String = "", user: String = "", sshOn: Bool = false, sshHost: String = "", sshUser: String = "", sshUsesKey: Bool = false, tunnelWebOverSSH: Bool = false, tunnelFilesOverSSH: Bool = false, tunnelPort: String = "", reverseProxyPort: String = "", sftpBase: String = "", useTailscale: Bool = false, serveFilesOverTunnels: Bool = false) {
         self.name = name
         self.id = id
         self.serverAddress = serverAddress

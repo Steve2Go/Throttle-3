@@ -110,39 +110,39 @@ struct ServerView: View {
             // .padding(.bottom, 20)
             // #endif
             
-            if server.serveFilesOverTunnels {
-                Section("File Transfer") {
-                    Toggle("Tunnel Files Over SSH", isOn: $server.tunnelFilesOverSSH)
-                    Text("File transfer must be secured by Tailscale / SSH")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    
-//                                        TextField("Download Folder Base Path", text: $server.sftpBase)
-//                    #if os(iOS)
-//                        .autocapitalization(.none)
-//                    #endif
-
-//                    TextField("Files Port(optional)", text: $server.tunnelPort)
-//#if os(iOS)
-//    .autocapitalization(.none)
-//
-//                        .keyboardType(.numberPad)
-//#endif
-//                    TextField("Port", text: $server.reverseProxyPort)
-//#if os(iOS)
-//    .autocapitalization(.none)
-//
-//                        .keyboardType(.numberPad)
-//#endif
+//            if server.serveFilesOverTunnels {
+//                Section("File Transfer") {
+//                    Toggle("Tunnel Files Over SSH", isOn: $server.tunnelFilesOverSSH)
+//                    Text("File transfer must be secured by Tailscale / SSH")
+//                        .font(.caption)
+//                        .foregroundStyle(.secondary)
 //                    
-
-                }
-            }
-        }
-        .navigationTitle("Server Settings")
-            #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-            #endif
+////                                        TextField("Download Folder Base Path", text: $server.sftpBase)
+////                    #if os(iOS)
+////                        .autocapitalization(.none)
+////                    #endif
+//
+////                    TextField("Files Port(optional)", text: $server.tunnelPort)
+////#if os(iOS)
+////    .autocapitalization(.none)
+////
+////                        .keyboardType(.numberPad)
+////#endif
+////                    TextField("Port", text: $server.reverseProxyPort)
+////#if os(iOS)
+////    .autocapitalization(.none)
+////
+////                        .keyboardType(.numberPad)
+////#endif
+////                    
+//
+//                }
+//            }
+//        }
+//        .navigationTitle("Server Settings")
+//            #if os(iOS)
+//        .navigationBarTitleDisplayMode(.inline)
+//            #endif
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") {
