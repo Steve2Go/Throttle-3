@@ -52,11 +52,9 @@
 				Frameworks/SshLib_iOS.xcframework = (CodeSignOnCopy, RemoveHeadersOnCopy, );
 				Frameworks/SshLib_macOS.xcframework = (CodeSignOnCopy, RemoveHeadersOnCopy, );
 				Frameworks/TailscaleKit.framework = (CodeSignOnCopy, RemoveHeadersOnCopy, );
-				Frameworks/mft.xcframework = (CodeSignOnCopy, RemoveHeadersOnCopy, );
 			};
 			buildPhase = E7E83AC92EFA11E30000B55B /* Embed Frameworks */;
 			membershipExceptions = (
-				Frameworks/mft.xcframework,
 				Frameworks/MobileVLCKit.xcframework,
 				Frameworks/SshLib_iOS.xcframework,
 				Frameworks/SshLib_macOS.xcframework,
@@ -219,6 +217,8 @@
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
+					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
+					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Throttle 3/Info.plist";
@@ -239,6 +239,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				MARKETING_VERSION = "3.0-a";
+				OTHER_CFLAGS = "PKG_CONFIG_PATH=/opt/homebrew/opt/openssl@3/lib/pkgconfig:/opt/homebrew/opt/libssh2/lib/pkgconfig";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.srgim.Throttle-3";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -277,6 +278,8 @@
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
+					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
+					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Throttle 3/Info.plist";
@@ -297,6 +300,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				MARKETING_VERSION = "3.0-a";
+				OTHER_CFLAGS = "PKG_CONFIG_PATH=/opt/homebrew/opt/openssl@3/lib/pkgconfig:/opt/homebrew/opt/libssh2/lib/pkgconfig";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.srgim.Throttle-3";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

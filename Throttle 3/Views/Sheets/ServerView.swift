@@ -15,6 +15,7 @@ struct ServerView: View {
     
     @Bindable var server: Servers
     let keychain = Keychain(service: "com.srgim.throttle3")
+    let isNewServer: Bool
     
     @State private var password: String = ""
     @State private var sshKey: String = ""
@@ -23,9 +24,11 @@ struct ServerView: View {
     init(server: Servers? = nil) {
         if let server = server {
             self.server = server
+            self.isNewServer = false
         } else {
             // Create a new server
             self.server = Servers()
+            self.isNewServer = true
         }
     }
     
@@ -106,48 +109,13 @@ struct ServerView: View {
                 if server.sshOn {
                     Toggle("Tunnel Web Over SSH", isOn: $server.tunnelWebOverSSH)
                     Toggle("Serve Files", isOn: $server.serveFilesOverTunnels)
-
-                    
-                    
                 }
             }
-            // #if os(macOS)
-            // .padding(.bottom, 20)
-            // #endif
-            
-//            if server.serveFilesOverTunnels {
-//                Section("File Transfer") {
-//                    Toggle("Tunnel Files Over SSH", isOn: $server.tunnelFilesOverSSH)
-//                    Text("File transfer must be secured by Tailscale / SSH")
-//                        .font(.caption)
-//                        .foregroundStyle(.secondary)
-//                    
-////                                        TextField("Download Folder Base Path", text: $server.sftpBase)
-////                    #if os(iOS)
-////                        .autocapitalization(.none)
-////                    #endif
-//
-////                    TextField("Files Port(optional)", text: $server.tunnelPort)
-////#if os(iOS)
-////    .autocapitalization(.none)
-////
-////                        .keyboardType(.numberPad)
-////#endif
-////                    TextField("Port", text: $server.reverseProxyPort)
-////#if os(iOS)
-////    .autocapitalization(.none)
-////
-////                        .keyboardType(.numberPad)
-////#endif
-////                    
-//
-//                }
-//            }
-//        }
-//        .navigationTitle("Server Settings")
-//            #if os(iOS)
-//        .navigationBarTitleDisplayMode(.inline)
-//            #endif
+        }
+        .navigationTitle(isNewServer ? "Add Server" : "Edit Server")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") {
@@ -177,6 +145,12 @@ struct ServerView: View {
     }
     
     private func saveSecrets() {
+        // Add new server to context if it's new
+        if isNewServer {
+            modelContext.insert(server)
+        }
+        
+        // Save credentials to keychain
         if !password.isEmpty {
             keychain["\(server.id.uuidString)-password"] = password
         }
@@ -186,6 +160,12 @@ struct ServerView: View {
         if !sshPassword.isEmpty {
             keychain["\(server.id.uuidString)-sshpassword"] = sshPassword
         }
-        try? modelContext.save()
+        
+        // Save model context
+        do {
+            try modelContext.save()
+        } catch {
+            print("Failed to save server: \(error)")
+        }
     }
 }
