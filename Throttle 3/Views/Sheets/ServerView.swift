@@ -34,11 +34,20 @@ struct ServerView: View {
             Form {
                 Section("Transmission") {
                     TextField("Server Name", text: $server.name)
-                    TextField("URL", text: $server.url)
-                        .textContentType(.URL)
+                    TextField("Server Address", text: $server.serverAddress)
                     #if os(iOS)
                         .autocapitalization(.none)
                     #endif
+                    Text("Local, Real World or Tailscale Server Address")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("Server Port", text: $server.serverPort)
+                    #if os(iOS)
+                        .autocapitalization(.none)
+                    
+                        .keyboardType(.numberPad)
+#endif
+                    Toggle("Uses SSL", isOn: $server.usesSSL)
                 TextField("Username", text: $server.user)
                     .textContentType(.username)
 #if os(iOS)
@@ -47,17 +56,17 @@ struct ServerView: View {
                 SecureField("Password", text: $password)
                     .textContentType(.password)
             }
-            #if os(macOS)
-            .padding(.bottom, 20)
-            #endif
+            // #if os(macOS)
+            // .padding(.bottom, 20)
+            // #endif
             Section("Tunnels & SSH") {
                 Toggle("Tunnel Over Tailscale", isOn: $server.useTailscale)
                 Toggle("Use SSH", isOn: $server.sshOn)
+                Text("Used to secure connection & serve files")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                  if server.sshOn {
-                    TextField("SSH Host", text: $server.sshHost)
-#if os(iOS)
-    .autocapitalization(.none)
-#endif
+                    
                     TextField("SSH User", text: $server.sshUser)
                         .textContentType(.username)
 #if os(iOS)
@@ -79,6 +88,13 @@ struct ServerView: View {
                             .textContentType(.password)
                     }
                      Toggle("Use SSH Key", isOn: $server.sshUsesKey)
+                     TextField("SSH Host", text: $server.sshHost)
+ #if os(iOS)
+     .autocapitalization(.none)
+ #endif
+                      Text("If different to Server Host")
+                          .font(.caption)
+                          .foregroundStyle(.secondary)
                    
                 }
                 
@@ -90,17 +106,22 @@ struct ServerView: View {
                     
                 }
             }
-            #if os(macOS)
-            .padding(.bottom, 20)
-            #endif
+            // #if os(macOS)
+            // .padding(.bottom, 20)
+            // #endif
             
             if server.serveFilesOverTunnels {
                 Section("File Transfer") {
                     Toggle("Tunnel Files Over SSH", isOn: $server.tunnelFilesOverSSH)
-                    Text("File transfer must be secured by Tailscale and or SSH")
+                    Text("File transfer must be secured by Tailscale / SSH")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-//
+                    
+//                                        TextField("Download Folder Base Path", text: $server.sftpBase)
+//                    #if os(iOS)
+//                        .autocapitalization(.none)
+//                    #endif
+
 //                    TextField("Files Port(optional)", text: $server.tunnelPort)
 //#if os(iOS)
 //    .autocapitalization(.none)
@@ -114,10 +135,7 @@ struct ServerView: View {
 //                        .keyboardType(.numberPad)
 //#endif
 //                    
-//                    TextField("SFTP Base Path", text: $server.sftpBase)
-//#if os(iOS)
-//    .autocapitalization(.none)
-//#endif
+
                 }
             }
         }

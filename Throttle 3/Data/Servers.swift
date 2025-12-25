@@ -12,6 +12,9 @@ import SwiftData
 final class Servers {
     var name : String = ""
     var id: UUID = UUID()
+    var serverAddress: String = ""
+    var serverPort: String = ""
+    var usesSSL: Bool = true
     var url: String = ""
     var sshHost: String = ""
     var user: String = ""
@@ -38,12 +41,15 @@ final class Servers {
     var useTailscale: Bool = false
     var serveFilesOverTunnels: Bool = false
     
-    init(name: String = "", id: UUID = UUID(), url: String = "", user: String = "", sshOn: Bool = false, sshHost: String = "", sshUser: String = "", sshUsesKey: Bool = false, tunnelWebOverSSH: Bool = false, tunnelFilesOverSSH: Bool = false, tunnelPort: String = "", reverseProxyPort: String = "", sftpBase: String = "", useTailscale: Bool = false, serveFilesOverTunnels: Bool = false) {
+    init(name: String = "", id: UUID = UUID(), serverAddress: String = "", serverPort: String = "", usesSSL: Bool = true, url: String = "", user: String = "", sshOn: Bool = false, sshHost: String = "", sshUser: String = "", sshUsesKey: Bool = false, tunnelWebOverSSH: Bool = false, tunnelFilesOverSSH: Bool = false, tunnelPort: String = "", reverseProxyPort: String = "", sftpBase: String = "", useTailscale: Bool = false, serveFilesOverTunnels: Bool = false) {
         self.name = name
         self.id = id
+        self.serverAddress = serverAddress
+        self.serverPort = serverPort
+        self.usesSSL = usesSSL
         self.url = url
         self.user = user
-        self.sshHost = sshHost
+        self.sshHost = sshHost.isEmpty ? serverAddress : sshHost
         self.sshOn = sshOn
         self.sshUser = sshUser
         self.sshUsesKey = sshUsesKey
