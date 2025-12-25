@@ -10,11 +10,14 @@ import SwiftUI
 
 struct ConnectingView: View {
     var icon: String = "ellipsis"
+    var service = ""
     
     var body: some View {
-        ContentUnavailableView{
-            Label("Connecting", systemImage: icon)
-                .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.0)))
+        
+        HStack {
+            Image(systemName: icon)
+                .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
+            Text("Connecting" + service + "...")
         }
     }
     

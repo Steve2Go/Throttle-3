@@ -95,6 +95,11 @@ struct ServerView: View {
                       Text("If different to Server Host")
                           .font(.caption)
                           .foregroundStyle(.secondary)
+                     TextField("SSH Port", text: $server.sshPort)
+ #if os(iOS)
+     .autocapitalization(.none)
+     .keyboardType(.numberPad)
+ #endif
                    
                 }
                 

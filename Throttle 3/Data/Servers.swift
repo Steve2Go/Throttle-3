@@ -33,6 +33,7 @@ final class Servers {
     var sshOn: Bool = false
     var sshUser: String = ""
     var sshUsesKey: Bool = false
+    var sshPort: String = "22"
     var tunnelWebOverSSH: Bool = false
     var tunnelFilesOverSSH: Bool = false
     var tunnelPort: String = ""
@@ -41,7 +42,7 @@ final class Servers {
     var useTailscale: Bool = false
     var serveFilesOverTunnels: Bool = false
     
-    init(name: String = "", id: UUID = UUID(), serverAddress: String = "", serverPort: String = "", usesSSL: Bool = false, url: String = "", user: String = "", sshOn: Bool = false, sshHost: String = "", sshUser: String = "", sshUsesKey: Bool = false, tunnelWebOverSSH: Bool = false, tunnelFilesOverSSH: Bool = false, tunnelPort: String = "", reverseProxyPort: String = "", sftpBase: String = "", useTailscale: Bool = false, serveFilesOverTunnels: Bool = false) {
+    init(name: String = "", id: UUID = UUID(), serverAddress: String = "", serverPort: String = "", usesSSL: Bool = false, url: String = "", user: String = "", sshOn: Bool = false, sshHost: String = "", sshUser: String = "", sshUsesKey: Bool = false, sshPort: String = "22", tunnelWebOverSSH: Bool = false, tunnelFilesOverSSH: Bool = false, tunnelPort: String = "", reverseProxyPort: String = "", sftpBase: String = "", useTailscale: Bool = false, serveFilesOverTunnels: Bool = false) {
         self.name = name
         self.id = id
         self.serverAddress = serverAddress
@@ -53,6 +54,7 @@ final class Servers {
         self.sshOn = sshOn
         self.sshUser = sshUser
         self.sshUsesKey = sshUsesKey
+        self.sshPort = sshPort
         self.tunnelWebOverSSH = tunnelWebOverSSH
         self.tunnelFilesOverSSH = tunnelFilesOverSSH
         self.tunnelPort = tunnelPort

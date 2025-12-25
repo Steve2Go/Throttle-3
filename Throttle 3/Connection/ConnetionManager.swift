@@ -4,14 +4,13 @@
 //
 //  Created by Stephen Grigg on 23/12/2025.
 //
-//0 - no servers? firstrun
-
-
 
 //1 - Tailscale if set, or tunnel()
 
 
-//2 Tunnel if set or start queue
+//2 Tunnels up - Http if set, plus one for the sftp, and one for the file server.
+
+//traverse using ssh exec and install / start dufs if needed
 
 
 //3 Start queue
