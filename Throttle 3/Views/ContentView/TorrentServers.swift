@@ -13,33 +13,26 @@ struct ServerList: View {
     @Query private var servers: [Servers]
     
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(servers) { server in
-                    Button(action: {
+                    Button {
                         // Handle server selection
-                    }) {
-                        HStack {
+                    }
+                        label:{
                             Image(systemName: "externaldrive.badge.icloud")
-                        VStack(alignment: .leading, spacing: 4) {
+                                .padding(.leading, 6)
+                                .foregroundStyle(.primary)
+                        
                             Text(server.name)
-                                .font(.headline)
-                            if !server.url.isEmpty {
-                                Text(server.url)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding()
-                        .background(Color.secondary.opacity(0.1))
-                        .cornerRadius(8)
-                        }
+                                .padding(.leading, 0)
+                                .foregroundColor(.primary)
+                        
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal)
-        }
+            .padding()
+        
     }
     
     private func deleteItems(offsets: IndexSet) {

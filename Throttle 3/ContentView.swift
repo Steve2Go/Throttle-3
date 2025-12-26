@@ -24,6 +24,7 @@ struct ContentView: View {
 #endif
             } else {
                 VStack(alignment: .leading, spacing: 0) {
+                    
                     Text("Servers")
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading)
