@@ -128,15 +128,16 @@ class SSHManager {
         useTunnel: Bool
     ) async throws -> (sshHost: String, socks5Address: String?) {
         #if os(iOS)
-        // iOS: Always use tunnel approach with Tailscale's SOCKS5 proxy
+        // iOS: Use Tailscale's SOCKS5 proxy when enabled
         if server.useTailscale {
             let tsManager = TailscaleManager.shared
-            guard let socks5Addr = await tsManager.getSocks5Address() else {
+            guard tsManager.isConnected else {
                 throw SSHError.tailscaleNotAvailable
             }
             
+            // TailscaleKit provides SOCKS5 proxy at 127.0.0.1:1080
             let sshHost = "\(server.sshHost):\(server.sshPort)"
-            return (sshHost, socks5Addr)
+            return (sshHost, "127.0.0.1:1080")
         } else {
             // Direct connection on iOS (if server is directly reachable)
             let sshHost = "\(server.sshHost):\(server.sshPort)"

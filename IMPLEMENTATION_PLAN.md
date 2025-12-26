@@ -28,10 +28,10 @@ SSHManager (Command Execution)
 ├─ Checks ConnectionManager for tunnel port
 └─ Connects via SOCKS5 (iOS) or direct (macOS)
 
-SFTPManager (Existing - File Operations)
-├─ Uses MFT framework for SFTP
-├─ Same tunnel awareness as SSHManager
-└─ Already implemented
+SFTPManager (File Operations)
+├─ Uses SshLib framework (extended with SFTP operations)
+├─ Same connection handling as SSHManager
+└─ Supports all file operations: list, upload, download, delete, rename, stat
 
 TunnelManager (Existing - Enhanced)
 ├─ Uses SshLib for SSH tunnels
@@ -47,15 +47,15 @@ TunnelManager (Existing - Enhanced)
 **Location:** `/Users/stephengrigg/Documents/ssh-go-master`  
 **Changes Made:**
 - ✅ Added `exec.go` with `ExecuteCommand()` and `ExecuteCommandBackground()`
+- ✅ Added `sftp.go` with full SFTP client operations (7 functions)
 - ✅ Added `socks5_dialer.go` for SOCKS5 proxy support (golang.org/x/net/proxy)
 - ✅ Rebuilt both iOS and macOS xcframeworks with new functions
-- ✅ Copied updated frameworks to Xcode project
 
 **New Functions Available:**
-- `SshlibExecuteCommand()` - Execute command and wait for output
-- `SshlibExecuteCommandBackground()` - Fire and forget for long-running services
+- SSH: `SshlibExecuteCommand()`, `SshlibExecuteCommandBackground()`
+- SFTP: `SshlibSftpListDirectory()`, `SshlibSftpDownloadFile()`, `SshlibSftpUploadFile()`, `SshlibSftpDeleteFile()`, `SshlibSftpMakeDirectory()`, `SshlibSftpStat()`, `SshlibSftpRename()`
 
-**Status:** ✅ COMPLETE - No Homebrew dependencies, works on both platforms
+**Status:** ✅ COMPLETE - No external dependencies, MFT framework can be removed
 
 ---
 
@@ -359,9 +359,12 @@ var body: some View {
 
 ### Phase 1: Dependencies & Foundation ✅ COMPLETE
 1. ✅ Extended SshLib with ExecuteCommand functions (Go code)
-2. ✅ Rebuilt iOS and macOS xcframeworks
-3. ✅ Copied updated frameworks to Xcode project
-4. ✅ Created SSHManager.swift with SshLib wrapper
+2. ✅ Extended SshLib with SFTP operations (7 functions in Go)
+3. ✅ Added SOCKS5 client dialer for iOS/Tailscale support
+4. ✅ Rebuilt iOS and macOS xcframeworks
+5. ✅ Created SSHManager.swift with SshLib wrapper
+6. ✅ Created SFTPManager.swift with SshLib wrapper
+7. ✅ Eliminated MFT framework dependency
 
 ### Phase 2: Core Logic (IN PROGRESS)
 5. ⏳ Create ConnectionManager.swift skeleton
