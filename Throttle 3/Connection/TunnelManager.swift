@@ -72,28 +72,37 @@ class TunnelManager: ObservableObject {
         
         do {
             if config.useTailscale {
-                let proxyPort = tailscaleManager.proxyConfig?.port
-                // Establish SSH tunnel through Tailscale
-                try await establishSSHTunnel(config: config, socks5Address: "127.0.0.1:" + String(describing: proxyPort!))
-                print("Proxy via Tailscale Port:" + String(describing: proxyPort!))
+                guard let proxyConfig = tailscaleManager.proxyConfig,
+                      let proxyPort = proxyConfig.port else {
+                    throw TunnelError.invalidProxyAddress
+                }
+                // Establish SSH tunnel through Tailscale with authentication
+                let socks5Address = "127.0.0.1:\(proxyPort)"
+                let socks5Auth = "tsnet:\(proxyConfig.proxyCredential)"
+                print("Proxy via Tailscale Port: \(proxyPort) with auth")
+                
+                // Start tunnel in background - it will run indefinitely
+                Task.detached {
+                    try await self.establishSSHTunnel(config: config, socks5Address: socks5Address, socks5ProxyAuth: socks5Auth)
+                }
+                
             } else {
-                // Direct SSH tunnel without Tailscale
-                try await establishSSHTunnel(config: config, socks5Address: nil)
+                // Direct SSH tunnel without Tailscale - start in background
+                Task.detached {
+                   try await self.establishSSHTunnel(config: config, socks5Address: nil, socks5ProxyAuth: nil)
+                }
             }
             
-            tunnels[id]?.isActive = true
-            tunnels[id]?.isConnecting = false
+            // Mark as connecting - will be updated to active when "Port forward active" is detected
+            tunnels[id]?.isConnecting = true
             
-            // Update global connecting state
-            updateGlobalConnectingState()
-            
-            // Parse local port from localAddress
+            // Parse and store expected local port from localAddress
             if let portString = config.localAddress.split(separator: ":").last,
                let port = Int(portString) {
                 tunnels[id]?.localPort = port
             }
             
-            print("✓ SSH tunnel [\(id)] established: \(config.localAddress) → \(config.remoteAddress)")
+            print("🔄 SSH tunnel [\(id)] initiating: \(config.localAddress) → \(config.remoteAddress)")
             
         } catch {
             tunnels[id]?.isConnecting = false
@@ -133,25 +142,66 @@ class TunnelManager: ObservableObject {
         return tunnels[id]?.localPort
     }
     
+    /// Mark a tunnel as active (called when "Port forward active" is detected)
+    func markTunnelActive(id: String) {
+        tunnels[id]?.isActive = true
+        tunnels[id]?.isConnecting = false
+        updateGlobalConnectingState()
+        print("✓ SSH tunnel [\(id)] confirmed active")
+    }
+    
+    /// Check if all expected tunnels are active
+    func areAllTunnelsActive(ids: [String]) -> Bool {
+        return ids.allSatisfy { id in
+            tunnels[id]?.isActive == true
+        }
+    }
+    
+    /// Check if a tunnel's local port is listening (confirms tunnel is active)
+    func checkTunnelConnectivity(id: String) async -> Bool {
+        guard let port = tunnels[id]?.localPort else { return false }
+        
+        // Try to connect to the local port
+        let host = "127.0.0.1"
+        let streamTask = URLSession.shared.streamTask(withHostName: host, port: port)
+        
+        return await withCheckedContinuation { continuation in
+            streamTask.resume()
+            
+            // Give it a moment to connect
+            DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) {
+                if streamTask.state == .running {
+                    streamTask.cancel()
+                    continuation.resume(returning: true)
+                } else {
+                    continuation.resume(returning: false)
+                }
+            }
+        }
+    }
+    
     // MARK: - Private Methods
     
     private func updateGlobalConnectingState() {
         isConnecting = tunnels.values.contains(where: { $0.isConnecting })
     }
     
-    private func establishSSHTunnel(config: SSHTunnelConfig, socks5Address: String?) async throws {
+    private func establishSSHTunnel(config: SSHTunnelConfig, socks5Address: String?, socks5ProxyAuth: String?) async throws {
         let sshAddress = "\(config.sshHost):\(config.sshPort)"
         
-        // Call SshLib - works on both iOS and macOS!
-        SshlibInitSSH(
-            sshAddress,
-            socks5Address,
-            config.credentials.username,
-            config.credentials.password,
-            config.credentials.privateKey,
-            config.remoteAddress,
-            config.localAddress
-        )
+        // Call SshLib on a background thread since it's a blocking call
+        await Task.detached {
+            SshlibInitSSH(
+                sshAddress,
+                socks5Address,
+                socks5ProxyAuth,
+                config.credentials.username,
+                config.credentials.password,
+                config.credentials.privateKey,
+                config.remoteAddress,
+                config.localAddress
+            )
+        }.value
     }
 }
 

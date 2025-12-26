@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import KeychainAccess
 
 //1 - Tailscale if set, or tunnel()
 
@@ -27,8 +28,29 @@ class ConnectionManager: ObservableObject {
     
     private let tailscaleManager = TailscaleManager.shared
     private let tunnelManager = TunnelManager.shared
+    private let keychain = Keychain(service: "com.srgim.throttle3")
     
     private init() {}
+    
+    // MARK: - Credential Loading
+    
+    private func loadCredentials(for server: Servers) -> SSHCredentials {
+        if server.sshUsesKey {
+            let privateKey = keychain["\(server.id.uuidString)-sshkey"] ?? ""
+            return SSHCredentials(
+                username: server.sshUser,
+                password: nil,
+                privateKey: privateKey
+            )
+        } else {
+            let password = keychain["\(server.id.uuidString)-sshpassword"] ?? ""
+            return SSHCredentials(
+                username: server.sshUser,
+                password: password,
+                privateKey: nil
+            )
+        }
+    }
     
     // MARK: - Public Interface
     
@@ -43,19 +65,54 @@ class ConnectionManager: ObservableObject {
         
         print("🔌 ConnectionManager: Starting connection for server '\(server.name)'")
         
-        // Step 2: Start web tunnel if enabled
-        if server.tunnelWebOverSSH {
-            await startWebTunnel(server: server)
+        // Give SwiftUI time to render the connecting state
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        
+        // Start both tunnels concurrently - they run on background threads
+        async let webTunnelResult: Void = server.tunnelWebOverSSH ? startWebTunnel(server: server) : ()
+        async let fileServerResult: Void = server.serveFilesOverTunnels ? startFileServerTunnel(server: server) : ()
+        
+        // Wait for both to be initiated (not connected yet)
+        _ = await (webTunnelResult, fileServerResult)
+        
+        // Monitor tunnel states by checking port connectivity
+        var expectedTunnels: [String] = []
+        if server.tunnelWebOverSSH { expectedTunnels.append("web") }
+        if server.serveFilesOverTunnels { expectedTunnels.append("fileserver") }
+        
+        // Wait for tunnels to become active (check port connectivity)
+        var attempts = 0
+        let maxAttempts = 40 // 40 * 500ms = 20 seconds max
+        
+        while attempts < maxAttempts {
+            var allActive = true
+            
+            for tunnelId in expectedTunnels {
+                if await tunnelManager.checkTunnelConnectivity(id: tunnelId) {
+                    // Mark as active if not already
+                    if tunnelManager.getTunnelState(id: tunnelId)?.isActive != true {
+                        tunnelManager.markTunnelActive(id: tunnelId)
+                    }
+                } else {
+                    allActive = false
+                }
+            }
+            
+            if allActive {
+                isConnected = true
+                isConnecting = false
+                print("✓ ConnectionManager: All tunnels are active and ports are listening")
+                return
+            }
+            
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+            attempts += 1
         }
         
-        // Step 4: Start file server tunnel if needed
-        if server.serveFilesOverTunnels {
-            await startFileServerTunnel(server: server)
-        }
-        
+        // Timeout - tunnels didn't all become active
         isConnecting = false
-        isConnected = true
-        print("✓ ConnectionManager: All tunnels established")
+        isConnected = false
+        print("⚠️ ConnectionManager: Timeout - not all tunnel ports are listening")
     }
     
     /// Disconnect all tunnels
@@ -68,17 +125,16 @@ class ConnectionManager: ObservableObject {
     // MARK: - Private Methods
     
     private func startWebTunnel(server: Servers) async {
-            let credentials = SSHCredentials(
-            username: server.sshUser,
-            password: "", // TODO: Get from keychain
-            privateKey: nil // TODO: Get from keychain if using key
-        )
+        let credentials = loadCredentials(for: server)
+        
+        // Use port + 8000 for local web tunnel (e.g., 80 -> 8080, 9091 -> 17091)
+        let localWebPort = (Int(server.serverPort) ?? 80) + 8000
         
         let config = SSHTunnelConfig(
             sshHost: server.sshHost.isEmpty ? server.serverAddress : server.sshHost,
             sshPort: Int(server.sshPort) ?? 22,
             remoteAddress: "127.0.0.1:\(server.serverPort)",
-            localAddress: "127.0.0.1:80\(server.serverPort)", // Let system assign a port
+            localAddress: "127.0.0.1:\(localWebPort)",
             credentials: credentials,
             useTailscale: server.useTailscale
         )
@@ -97,18 +153,19 @@ class ConnectionManager: ObservableObject {
         
         print("🔧 Starting file server tunnel...")
         
-        let credentials = SSHCredentials(
-            username: server.sshUser,
-            password: "", // TODO: Get from keychain
-            privateKey: nil // TODO: Get from keychain if using key
-        )
+        let credentials = loadCredentials(for: server)
         
 
+        // Use port + 18000 for file server local (e.g., 80 -> 18080, 9091 -> 27091)
+        let localFileServerPort = (Int(server.serverPort) ?? 80) + 18000
+        // File server typically runs on different port on remote, use port + 10000
+        let remoteFileServerPort = (Int(server.serverPort) ?? 80) + 10000
+        
         let config = SSHTunnelConfig(
             sshHost: server.sshHost.isEmpty ? server.serverAddress : server.sshHost,
             sshPort: Int(server.sshPort) ?? 22,
-            remoteAddress: "127.0.0.1:8\(server.serverPort)",
-            localAddress: "127.0.0.1:88\(server.serverPort)",
+            remoteAddress: "127.0.0.1:\(remoteFileServerPort)",
+            localAddress: "127.0.0.1:\(localFileServerPort)",
             credentials: credentials,
             useTailscale: server.useTailscale
         )

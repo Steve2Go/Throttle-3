@@ -1,8 +1,0 @@
-framework module "SshLib_macOS" {
-	header "ref.h"
-    header "Sshlib.objc.h"
-    header "Universe.objc.h"
-    header "SshLib_macOS.h"
-
-    export *
-}

@@ -1,4 +1,0 @@
-module Sftpdav {
-    header "Sftpdav.h"
-    export *
-}
