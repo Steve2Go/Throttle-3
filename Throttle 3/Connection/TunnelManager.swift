@@ -30,125 +30,111 @@ struct SSHTunnelConfig {
     let useTailscale: Bool
 }
 
+struct TunnelState {
+    var isActive: Bool = false
+    var isConnecting: Bool = false
+    var localPort: Int?
+    var errorMessage: String?
+    var config: SSHTunnelConfig?
+}
+
 @MainActor
 class TunnelManager: ObservableObject {
     static let shared = TunnelManager()
     
-    @Published var isActive = false
-    @Published var isConnecting = false
-    @Published var localPort: Int?
-    @Published var errorMessage: String?
+    @Published var tunnels: [String: TunnelState] = [:]
+    @Published var isConnecting: Bool = false
     
-    private var currentConfig: SSHTunnelConfig?
+    // Convenience computed properties for backward compatibility with single tunnel
+    var isActive: Bool { tunnels.values.contains(where: { $0.isActive }) }
+    var errorMessage: String? { tunnels.values.compactMap({ $0.errorMessage }).first }
     
     private init() {}
     
     // MARK: - Public Interface
     
-    func startTunnel(config: SSHTunnelConfig) async {
-        guard !isConnecting else { return }
+    func startTunnel(id: String, config: SSHTunnelConfig) async {
+        // Initialize tunnel state if it doesn't exist
+        if tunnels[id] == nil {
+            tunnels[id] = TunnelState()
+        }
         
-        isConnecting = true
-        errorMessage = nil
-        currentConfig = config
+        guard tunnels[id]?.isConnecting == false else { return }
+        
+        tunnels[id]?.isConnecting = true
+        tunnels[id]?.errorMessage = nil
+        tunnels[id]?.config = config
+        
+        // Update global connecting state
+        updateGlobalConnectingState()
         
         do {
             if config.useTailscale {
-                // Wait for Tailscale to be connected first
-                try await ensureTailscaleConnected()
-                
-                // Get Tailscale SOCKS5 proxy details
-                let socks5Address = try await getTailscaleProxyAddress()
                 
                 // Establish SSH tunnel through Tailscale
-                try await establishSSHTunnel(config: config, socks5Address: socks5Address)
+                try await establishSSHTunnel(config: config, socks5Address: "127.0.0.1:1080")
                 
             } else {
                 // Direct SSH tunnel without Tailscale
                 try await establishSSHTunnel(config: config, socks5Address: nil)
             }
             
-            isActive = true
-            isConnecting = false
+            tunnels[id]?.isActive = true
+            tunnels[id]?.isConnecting = false
             
-            print("✓ SSH tunnel established: \(config.localAddress) → \(config.remoteAddress)")
+            // Update global connecting state
+            updateGlobalConnectingState()
+            
+            // Parse local port from localAddress
+            if let portString = config.localAddress.split(separator: ":").last,
+               let port = Int(portString) {
+                tunnels[id]?.localPort = port
+            }
+            
+            print("✓ SSH tunnel [\(id)] established: \(config.localAddress) → \(config.remoteAddress)")
             
         } catch {
-            isConnecting = false
-            isActive = false
-            errorMessage = error.localizedDescription
-            print("❌ SSH tunnel failed: \(error)")
+            tunnels[id]?.isConnecting = false
+            tunnels[id]?.isActive = false
+            tunnels[id]?.errorMessage = error.localizedDescription
+            
+            // Update global connecting state
+            updateGlobalConnectingState()
+            
+            print("❌ SSH tunnel [\(id)] failed: \(error)")
         }
     }
     
-    func stopTunnel() {
+    func stopTunnel(id: String) {
         // TODO: Implement tunnel shutdown
         // SshLib doesn't expose a stop function in the header we saw
         // May need to add that or track the process/connection
         
-        isActive = false
-        localPort = nil
-        currentConfig = nil
+        tunnels[id]?.isActive = false
+        tunnels[id]?.localPort = nil
+        tunnels[id]?.config = nil
         
-        print("✓ SSH tunnel stopped")
+        print("✓ SSH tunnel [\(id)] stopped")
+    }
+    
+    func stopAllTunnels() {
+        for id in tunnels.keys {
+            stopTunnel(id: id)
+        }
+    }
+    
+    func getTunnelState(id: String) -> TunnelState? {
+        return tunnels[id]
+    }
+    
+    func getLocalPort(id: String) -> Int? {
+        return tunnels[id]?.localPort
     }
     
     // MARK: - Private Methods
     
-    private func ensureTailscaleConnected() async throws {
-        let manager = TailscaleManager.shared
-        
-        #if os(iOS)
-        // iOS: Wait for embedded Tailscale
-        if manager.isConnected {
-            return
-        }
-        
-        if !manager.isConnecting {
-            await manager.connect()
-        }
-        
-        let startTime = Date()
-        let timeout: TimeInterval = 30.0
-        
-        while !manager.isConnected {
-            if Date().timeIntervalSince(startTime) > timeout {
-                throw TunnelError.tailscaleTimeout
-            }
-            
-            if manager.errorMessage != nil {
-                throw TunnelError.tailscaleFailed
-            }
-            
-            try await Task.sleep(nanoseconds: 500_000_000)
-        }
-        #else
-        // macOS: Just check if system Tailscale is running
-        if !manager.isConnected {
-            throw TunnelError.tailscaleNotRunning
-        }
-        #endif
-    }
-    
-    private func getTailscaleProxyAddress() async throws -> String {
-        #if os(iOS)
-        guard let node = TailscaleManager.shared.node else {
-            throw TunnelError.tailscaleNotAvailable
-        }
-        
-        let loopback = try await node.loopback()
-        guard let ip = loopback.ip, let port = loopback.port else {
-            throw TunnelError.invalidProxyAddress
-        }
-        
-        return "\(ip):\(port)"
-        #else
-        // macOS: Tailscale doesn't expose SOCKS5 proxy by default
-        // We can use `tailscale nc` as ProxyCommand instead, or connect directly via tailnet
-        // For simplicity, if using tailscale on macOS, just use the tailnet hostname directly
-        // and don't use SOCKS5 proxy - SSH will resolve via Tailscale's DNS
-        throw TunnelError.macOSProxyNotSupported
-        #endif
+    private func updateGlobalConnectingState() {
+        isConnecting = tunnels.values.contains(where: { $0.isConnecting })
     }
     
     private func establishSSHTunnel(config: SSHTunnelConfig, socks5Address: String?) async throws {
@@ -164,12 +150,6 @@ class TunnelManager: ObservableObject {
             config.remoteAddress,
             config.localAddress
         )
-        
-        // Parse local port from localAddress
-        if let portString = config.localAddress.split(separator: ":").last,
-           let port = Int(portString) {
-            localPort = port
-        }
     }
 }
 

@@ -17,4 +17,5 @@ class Store: NSObject, ObservableObject {
     @Published var sshState: Bool = false
     @Published var currentServerID: UUID?
     @Published var sharedUrl: String?
+    @Published var didLoad: Bool = false
 }

@@ -8,10 +8,13 @@
 import SwiftUI
 import SwiftData
 import KeychainAccess
+import UniformTypeIdentifiers
 
 struct ServerView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var store: Store
+    @Environment(\.horizontalSizeClass) var sizeClass
     
     @Bindable var server: Servers
     let keychain = Keychain(service: "com.srgim.throttle3")
@@ -20,6 +23,7 @@ struct ServerView: View {
     @State private var password: String = ""
     @State private var sshKey: String = ""
     @State private var sshPassword: String = ""
+    @State private var showingKeyFilePicker = false
     
     init(server: Servers? = nil) {
         if let server = server {
@@ -79,13 +83,29 @@ struct ServerView: View {
 
                     
                     if server.sshUsesKey {
-                        TextEditor(text: $sshKey)
-                            .frame(minHeight: 100)
-                            .font(.system(.body, design: .monospaced))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
-                            )
+                        Button(action: {
+                            showingKeyFilePicker = true
+                        }) {
+                            HStack {
+                                Text(sshKey.isEmpty ? "Select Key" : "Change Key")
+                                Spacer()
+                                Image(systemName: "doc")
+                            }
+                        }
+                        .fileImporter(
+                            isPresented: $showingKeyFilePicker,
+                            allowedContentTypes: [.data, .text],
+                            allowsMultipleSelection: false
+                        ) { result in
+                            switch result {
+                            case .success(let urls):
+                                if let url = urls.first {
+                                    loadKeyFile(from: url)
+                                }
+                            case .failure(let error):
+                                print("Error selecting key file: \(error.localizedDescription)")
+                            }
+                        }
                     } else {
                         SecureField("SSH Password", text: $sshPassword)
                             .textContentType(.password)
@@ -142,6 +162,21 @@ struct ServerView: View {
         password = keychain["\(server.id.uuidString)-password"] ?? ""
         sshKey = keychain["\(server.id.uuidString)-sshkey"] ?? ""
         sshPassword = keychain["\(server.id.uuidString)-sshpassword"] ?? ""
+    }
+    
+    private func loadKeyFile(from url: URL) {
+        guard url.startAccessingSecurityScopedResource() else {
+            print("Couldn't access file")
+            return
+        }
+        defer { url.stopAccessingSecurityScopedResource() }
+        
+        do {
+            let keyContent = try String(contentsOf: url, encoding: .utf8)
+            sshKey = keyContent
+        } catch {
+            print("Error reading key file: \(error.localizedDescription)")
+        }
     }
     
     private func saveSecrets() {

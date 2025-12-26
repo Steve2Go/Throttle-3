@@ -22,6 +22,7 @@ struct Throttle_3App: App {
     @AppStorage("ServerToStart") var ServerToStart: String?
 
     @ObservedObject private var TSmanager = TailscaleManager.shared
+    @StateObject private var store = Store()
     
     @State private var hasCompletedInitialSync = false
     @State private var containerRefreshTrigger = 0
@@ -85,6 +86,7 @@ struct Throttle_3App: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(store)
                 .onAppear {
                     observeCloudKitActivity()
                 }
