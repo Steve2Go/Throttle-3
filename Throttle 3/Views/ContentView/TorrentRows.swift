@@ -36,12 +36,6 @@ struct TorrentRows: View {
     ]
 
     var body: some View {
-        // VStack {
-        //     // if tailscaleManager.isConnecting {
-        //     //     ConnectingView(icon: "square.grid.3x3.topleft.filled", service: " to Tailscale")
-        //     //         .frame(maxWidth: .infinity, maxHeight: 30)
-        //     // }
-        // }
         HStack(spacing: 8) {
             ForEach(dummyTorrents) { torrent in
                 Button {
@@ -64,10 +58,7 @@ struct TorrentRows: View {
         .padding()
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
-                Button(action: {}) {
-                    Image(systemName: "internaldrive")
-                }
-                .disabled(true)
+               
                 if tailscaleManager.isConnecting {
                     Button(action: {}) {
                         Image(systemName: "circle.grid.3x3")
@@ -83,47 +74,73 @@ struct TorrentRows: View {
                         Image(systemName: "arrow.clockwise")
                     }
                 }
-                
-                Button(action: {}) {
-                    Image(systemName: "document.badge.plus")
-                }
-                .disabled(true)
+
                 
                 Button(action: {}) {
                     Image(systemName: "plus")
                 }
-                .disabled(true)
+                
                 
                 Button(action: {}) {
-                    Image(systemName: "checklist")
+                    Image(systemName: "internaldrive")
                 }
-                .disabled(true)
             }
             #if os(iOS)
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem {
+                
                 Button(action: {
                     dismiss()
                 }) {
-                    Image(systemName: "gearshape")
+                    Image(systemName: "externaldrive.badge.person.crop")
                 }
             }
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button(action: {
+                        // Settings action
+                    }) {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                    
+                    Button(action: {
+                        // Create action
+                    }) {
+                        Label("Create", systemImage: "document.badge.plus")
+                    }
+                    
+                    Button(action: {
+                        // Selection action
+                    }) {
+                        Label("Selection", systemImage: "checklist")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                }
+            
+        }
             #else
             if !isSidebarVisible {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem {
                     Button(action: {
                         showServerList = true
                     }) {
-                        Image(systemName: "gearshape")
+                        Image(systemName: "externaldrive.badge.person.crop")
                     }
                 }
+                
+                //TODO - Make a filters & servers dropdown
+                
             }
             #endif
+            
+            
+            
         }
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showServerList) {
             NavigationStack {
                 ServerList(columnVisibility: $columnVisibility)
-                    .navigationTitle("Options")
+                    .navigationTitle("Servers")
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
                             Button("Done") {
@@ -138,6 +155,7 @@ struct TorrentRows: View {
                 if (tailscaleManager.isConnected || !server.useTailscale) && server.tunnelWebOverSSH {
                     print("Ready to connect.")
                     Task {
+                        connectionManager.disconnect()
                         await connectionManager.connect(server: server)
                         //start torrent fetching here
                     }

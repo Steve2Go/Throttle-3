@@ -17,6 +17,7 @@ struct ContentView: View {
 
     @ObservedObject private var tailscaleManager = TailscaleManager.shared
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var showTailscaleSheet = false
 
     var body: some View {
 
@@ -28,14 +29,6 @@ struct ContentView: View {
                     FirstRunView()
                 #endif
             } else {
-                // #if os(iOS)
-                //                 if tailscaleManager.isConnecting {
-                //                     ConnectingView(icon: "square.grid.3x3.topleft.filled", service: " to Tailscale")
-                //                         .frame(maxWidth: .infinity, maxHeight: 30)
-                //                         .background(Color(.systemBackground))
-                //                         .offset(y: -50)
-                //                 }
-                // #endif
                 VStack(alignment: .leading, spacing: 0) {
 
                     Text("Servers")
@@ -45,9 +38,6 @@ struct ContentView: View {
                     Text("Filters")
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading)
-                    Text("Tailscale")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.leading)
                     Spacer()
                 }
                 #if os(macOS)
@@ -55,23 +45,22 @@ struct ContentView: View {
                 #else
                     //Ios only Settings nav
                     .toolbar {
-                        ToolbarItem {
-                            Button(
-                                action: {
-                                    //edit Servers
-                                },
-                                label: {
-                                    Image(systemName: "externaldrive.badge.plus")
-                                })
-
-                            Button(
-                                action: {
-                                    //edit Servers
-                                },
-                                label: {
-                                    Image(systemName: "ellipsis")
-                                })
+                        
+                        Button(action: {
+                            showTailscaleSheet = true
+                        }) {
+                            Image(systemName: tailscaleManager.isConnecting ? "circle.grid.3x3" : "circle.grid.3x3.fill")
+                                .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive: tailscaleManager.isConnecting)
                         }
+                        
+                        Button(
+                            action: {
+                                //edit Servers
+                            },
+                            label: {
+                                Image(systemName: "externaldrive.badge.plus")
+                            })
+                       
                     }
                 #endif
             }
@@ -92,6 +81,10 @@ struct ContentView: View {
         }
         .onChange(of: columnVisibility) { _, newValue in
             sidebarVisible = (newValue == .all)
+        }
+        .sheet(isPresented: $showTailscaleSheet) {
+            TailscaleToggle()
+                .presentationDetents([.medium, .large])
         }
     }
 }

@@ -71,6 +71,7 @@ class TunnelManager: ObservableObject {
         updateGlobalConnectingState()
         
         do {
+            #if os(iOS)
             if config.useTailscale {
                 guard let proxyConfig = tailscaleManager.proxyConfig,
                       let proxyPort = proxyConfig.port else {
@@ -92,6 +93,11 @@ class TunnelManager: ObservableObject {
                    try await self.establishSSHTunnel(config: config, socks5Address: nil, socks5ProxyAuth: nil)
                 }
             }
+            #else
+            Task.detached {
+               try await self.establishSSHTunnel(config: config, socks5Address: nil, socks5ProxyAuth: nil)
+            }
+            #endif
             
             // Mark as connecting - will be updated to active when "Port forward active" is detected
             tunnels[id]?.isConnecting = true
