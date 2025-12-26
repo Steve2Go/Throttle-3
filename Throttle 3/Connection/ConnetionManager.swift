@@ -38,6 +38,7 @@ class ConnectionManager: ObservableObject {
         guard !isConnecting else { return }
         
         isConnecting = true
+        
         errorMessage = nil
         
         print("🔌 ConnectionManager: Starting connection for server '\(server.name)'")
@@ -67,23 +68,17 @@ class ConnectionManager: ObservableObject {
     // MARK: - Private Methods
     
     private func startWebTunnel(server: Servers) async {
-        print("🔧 Starting web tunnel...")
-        print("  SSH Host: \(server.sshHost):\(server.sshPort)")
-        print("  SSH User: \(server.sshUser)")
-        print("  Tunnel Port: \(server.tunnelPort)")
-        print("  Use Tailscale: \(server.useTailscale)")
-        
-        let credentials = SSHCredentials(
+            let credentials = SSHCredentials(
             username: server.sshUser,
             password: "", // TODO: Get from keychain
             privateKey: nil // TODO: Get from keychain if using key
         )
         
         let config = SSHTunnelConfig(
-            sshHost: server.sshHost,
+            sshHost: server.sshHost.isEmpty ? server.serverAddress : server.sshHost,
             sshPort: Int(server.sshPort) ?? 22,
-            remoteAddress: "127.0.0.1:\(server.tunnelPort)",
-            localAddress: "127.0.0.1:0", // Let system assign a port
+            remoteAddress: "127.0.0.1:\(server.serverPort)",
+            localAddress: "127.0.0.1:80\(server.serverPort)", // Let system assign a port
             credentials: credentials,
             useTailscale: server.useTailscale
         )
@@ -98,10 +93,7 @@ class ConnectionManager: ObservableObject {
     }
     
     private func startFileServerTunnel(server: Servers) async {
-        guard !server.reverseProxyPort.isEmpty else {
-            print("⚠️ File server tunnel requested but no reverse proxy port configured")
-            return
-        }
+
         
         print("🔧 Starting file server tunnel...")
         
@@ -111,11 +103,12 @@ class ConnectionManager: ObservableObject {
             privateKey: nil // TODO: Get from keychain if using key
         )
         
+
         let config = SSHTunnelConfig(
-            sshHost: server.sshHost,
+            sshHost: server.sshHost.isEmpty ? server.serverAddress : server.sshHost,
             sshPort: Int(server.sshPort) ?? 22,
-            remoteAddress: "127.0.0.1:\(server.reverseProxyPort)",
-            localAddress: "127.0.0.1:0",
+            remoteAddress: "127.0.0.1:8\(server.serverPort)",
+            localAddress: "127.0.0.1:88\(server.serverPort)",
             credentials: credentials,
             useTailscale: server.useTailscale
         )

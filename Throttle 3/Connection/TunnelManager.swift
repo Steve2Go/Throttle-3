@@ -45,6 +45,8 @@ class TunnelManager: ObservableObject {
     @Published var tunnels: [String: TunnelState] = [:]
     @Published var isConnecting: Bool = false
     
+    private let tailscaleManager = TailscaleManager.shared
+    
     // Convenience computed properties for backward compatibility with single tunnel
     var isActive: Bool { tunnels.values.contains(where: { $0.isActive }) }
     var errorMessage: String? { tunnels.values.compactMap({ $0.errorMessage }).first }
@@ -70,10 +72,10 @@ class TunnelManager: ObservableObject {
         
         do {
             if config.useTailscale {
-                
+                let proxyPort = tailscaleManager.proxyConfig?.port
                 // Establish SSH tunnel through Tailscale
-                try await establishSSHTunnel(config: config, socks5Address: "127.0.0.1:1080")
-                
+                try await establishSSHTunnel(config: config, socks5Address: "127.0.0.1:" + String(describing: proxyPort!))
+                print("Proxy via Tailscale Port:" + String(describing: proxyPort!))
             } else {
                 // Direct SSH tunnel without Tailscale
                 try await establishSSHTunnel(config: config, socks5Address: nil)

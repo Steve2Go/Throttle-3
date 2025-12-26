@@ -62,6 +62,7 @@ struct ServerList: View {
                    servers.contains(where: { $0.id == uuid }) {
                     store.didLoad = true
                     navigationTrigger = uuid
+                    store.currentServerID = uuid
                 }
             }
             .background(

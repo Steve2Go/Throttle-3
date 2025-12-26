@@ -18,10 +18,15 @@ import TailscaleKit
 class TailscaleManager: ObservableObject {
     static let shared = TailscaleManager()
     
-    @Published var isConnected: Bool = false
+    @Published var isConnected: Bool = false {
+        didSet {
+            print("🔵 TailscaleManager.isConnected changed: \(oldValue) -> \(isConnected)")
+        }
+    }
     @Published var isConnecting: Bool = false
     @Published var errorMessage: String?
     @Published var authURL: URL?
+    @Published var proxyConfig: TailscaleNode.LoopbackConfig?
     
     
     var node: TailscaleNode?
@@ -86,6 +91,7 @@ class TailscaleManager: ObservableObject {
             
             // Bring the node up - this will trigger auth flow if needed
             try await node.up()
+            proxyConfig = try await node.loopback()
             
         } catch {
             isConnecting = false
