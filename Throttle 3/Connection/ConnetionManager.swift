@@ -274,7 +274,37 @@ class ConnectionManager: ObservableObject {
     private func setupDufsServer(server: Servers, downloadDir: String, port: Int) async throws {
         print("📦 Setting up dufs server...")
         
-        // Step 1: Upload install script - try multiple paths
+        // Step 1: Check if dufs is already running on this port
+        print("🔍 Checking if dufs is already running on port \(port)...")
+        let checkCommand = "(ss -tln | grep '127.0.0.1:\(port)' || lsof -i TCP:\(port) -sTCP:LISTEN) && pgrep -f 'dufs.*-p \(port)' > /dev/null && echo 'running' || echo 'not running'"
+        let checkOutput = try? await sshManager.executeCommand(
+            server: server,
+            command: checkCommand,
+            timeout: 5,
+            useTunnel: false
+        )
+        
+        if checkOutput?.contains("running") == true {
+            print("✓ dufs is already running on port \(port)")
+            return
+        }
+        
+        print("⚠️ dufs not running, checking if binary exists...")
+        
+        // Step 2: Check if dufs binary exists
+        let dufsExistsCommand = "test -f ~/.throttle3/bin/dufs && echo 'exists' || echo 'not found'"
+        let dufsExists = try? await sshManager.executeCommand(
+            server: server,
+            command: dufsExistsCommand,
+            timeout: 5,
+            useTunnel: false
+        )
+        
+        if dufsExists?.contains("not found") == true {
+            print("📥 dufs not installed, running installation...")
+            
+            // Step 3: Upload install script - try multiple paths
+            // Step 3: Upload install script - try multiple paths
         var scriptURL = Bundle.main.url(forResource: "install-tools", withExtension: "sh", subdirectory: "Resources")
         if scriptURL == nil {
             scriptURL = Bundle.main.url(forResource: "install-tools", withExtension: "sh")
@@ -306,7 +336,7 @@ class ConnectionManager: ObservableObject {
         // Clean up temp file
         try? FileManager.default.removeItem(atPath: tempScriptPath)
         
-        // Step 2: Make script executable and run it
+        // Step 4: Make script executable and run it
         print("🔧 Installing dufs and ffmpeg...")
         _ = try await sshManager.executeCommand(
             server: server,
@@ -316,9 +346,12 @@ class ConnectionManager: ObservableObject {
         )
         
         print("✓ Tools installed")
+        } else {
+            print("✓ dufs binary found, skipping installation")
+        }
         
-        // Step 3: Kill any existing dufs on this port
-        print("🔍 Checking for existing dufs on port \(port)...")
+        // Step 5: Kill any existing dufs on this port (in case it's stuck)
+        print("🔄 Ensuring clean start...")
         let killCommand = "pkill -f 'dufs.*-p \(port)' || true"
         _ = try? await sshManager.executeCommand(
             server: server,
@@ -327,7 +360,7 @@ class ConnectionManager: ObservableObject {
             useTunnel: false
         )
         
-        // Step 4: Start dufs server
+        // Step 6: Start dufs server
         let password = keychain["\(server.id.uuidString)-password"] ?? ""
         let dufsCommand = """
         nohup ~/.throttle3/bin/dufs '\(downloadDir)' \
@@ -348,15 +381,15 @@ class ConnectionManager: ObservableObject {
         try await Task.sleep(nanoseconds: 1_000_000_000)
         
         // Verify it's running
-        let checkCommand = "ss -tln | grep '127.0.0.1:\(port)' || lsof -i TCP:\(port) -sTCP:LISTEN || echo 'not running'"
-        let checkOutput = try await sshManager.executeCommand(
+        let verifyCommand = "ss -tln | grep '127.0.0.1:\(port)' || lsof -i TCP:\(port) -sTCP:LISTEN || echo 'not running'"
+        let verifyOutput = try await sshManager.executeCommand(
             server: server,
-            command: checkCommand,
+            command: verifyCommand,
             timeout: 5,
             useTunnel: false
         )
         
-        if checkOutput.contains("not running") {
+        if verifyOutput.contains("not running") {
             print("❌ dufs failed to start - check ~/.throttle3/dufs.log on remote server")
         } else {
             print("✓ dufs server running on port \(port)")
