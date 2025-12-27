@@ -7,6 +7,9 @@
 
 import SwiftUI
 import SwiftData
+import Transmission
+import KeychainAccess
+import Combine
 
 struct TorrentRows: View {
     let isSidebarVisible: Bool
@@ -20,7 +23,12 @@ struct TorrentRows: View {
     @ObservedObject private var tunnelManager = TunnelManager.shared
     @ObservedObject private var connectionManager = ConnectionManager.shared
     @State private var showServerList = false
+    @State private var torrents: [Torrent] = []
+    @State private var isLoadingTorrents = false
+    @State private var cancellables = Set<AnyCancellable>()
     @Query private var servers: [Servers]
+    let keychain = Keychain(service: "com.srgim.throttle3")
+    
     
     // Get the current server based on the store's currentServerID
     private var currentServer: Servers? {
@@ -28,31 +36,47 @@ struct TorrentRows: View {
         return servers.first(where: { $0.id == currentServerID })
     }
     
-    // Dummy data for testing
-    let dummyTorrents = [
-        DummyTorrent(name: "Ubuntu 24.04 LTS", icon: "arrow.down.circle"),
-        DummyTorrent(name: "Big Buck Bunny", icon: "arrow.down.circle"),
-        DummyTorrent(name: "Debian 12 ISO", icon: "arrow.down.circle")
-    ]
-
     var body: some View {
         HStack(spacing: 8) {
-            ForEach(dummyTorrents) { torrent in
-                Button {
-                    print("Selected torrent: \(torrent.name)")
-                    // TODO: Navigate to torrent detail
+            if isLoadingTorrents {
+                ProgressView()
+                    .padding()
+            } else if torrents.isEmpty {
+                ForEach(dummyTorrents) { torrent in
+                    Button {
+                        print("Selected torrent: \(torrent.name)")
+                        // TODO: Navigate to torrent detail
+                    }
+                        label:{
+                            Image(systemName: torrent.icon)
+                                .padding(.leading, 6)
+                                .foregroundStyle(.primary)
+                        
+                            Text(torrent.name)
+                                .padding(.leading, 0)
+                                .foregroundColor(.primary)
+                        
+                    }
+                    .buttonStyle(.plain)
                 }
-                    label:{
-                        Image(systemName: torrent.icon)
-                            .padding(.leading, 6)
-                            .foregroundStyle(.primary)
-                    
-                        Text(torrent.name)
-                            .padding(.leading, 0)
-                            .foregroundColor(.primary)
-                    
+            } else {
+                ForEach(torrents, id: \.hash) { torrent in
+                    Button {
+                        print("Selected torrent: \(torrent.name ?? "Unknown")")
+                        // TODO: Navigate to torrent detail
+                    }
+                        label:{
+                            Image(systemName: "arrow.down.circle")
+                                .padding(.leading, 6)
+                                .foregroundStyle(.primary)
+                        
+                            Text(torrent.name ?? "Unknown")
+                                .padding(.leading, 0)
+                                .foregroundColor(.primary)
+                        
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding()
@@ -70,7 +94,11 @@ struct TorrentRows: View {
                         .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
                     }
                 } else {
-                    Button(action: {}) {
+                    Button(action: {
+                        Task {
+                            await fetchTorrents()
+                        }
+                    }) {
                         Image(systemName: "arrow.clockwise")
                     }
                 }
@@ -151,25 +179,97 @@ struct TorrentRows: View {
             }
         }
         .onAppear {
-            if let server = currentServer {
-                if (tailscaleManager.isConnected || !server.useTailscale) && server.tunnelWebOverSSH {
-                    print("Ready to connect.")
-                    Task {
-                        connectionManager.disconnect()
-                        await connectionManager.connect(server: server)
-                        //start torrent fetching here
-                    }
-                }
+            Task {
+                await fetchTorrents()
             }
         }
         .onChange(of: tailscaleManager.isConnected) { _, isConnected in
-            if isConnected, let server = currentServer, server.tunnelWebOverSSH {
-                print("Proceeding to connect tunnel.")
+            if isConnected {
                 Task {
-                    await connectionManager.connect(server: server)
-                    //start torrent fetching here
+                    await fetchTorrents()
                 }
             }
+        }
+    }
+    
+    // MARK: - Fetch Torrents
+    
+    func fetchTorrents() async {
+        guard let server = currentServer else {
+            print("No server selected")
+            return
+        }
+        
+        guard !isLoadingTorrents else { return }
+        
+        isLoadingTorrents = true
+        defer { isLoadingTorrents = false }
+        
+        // Check Tailscale connection
+        if server.useTailscale && !tailscaleManager.isConnected {
+            print("Connecting to Tailscale...")
+            await tailscaleManager.connect()
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+        }
+        
+        // Check tunnel connection
+        if server.tunnelWebOverSSH && !tunnelManager.isActive {
+            print("Connecting tunnel...")
+            await connectionManager.connect(server: server)
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+        }
+        
+        // Build Transmission URL
+        let scheme = server.usesSSL ? "https" : "http"
+        var host: String
+        var port: Int
+        
+        if server.tunnelWebOverSSH {
+            // Using SSH tunnel: connect to localhost on serverPort + 8000
+            host = "127.0.0.1"
+            port = (Int(server.serverPort) ?? 80) + 8000
+        } else if server.useTailscale {
+            // Using Tailscale: connect to server address with reverse proxy port
+            host = server.serverAddress
+            port = Int(server.reverseProxyPort) ?? (Int(server.serverPort) ?? 9091)
+        } else {
+            // Direct connection
+            host = server.serverAddress
+            port = Int(server.serverPort) ?? 9091
+        }
+        
+        let urlString = "\(scheme)://\(host):\(port)"
+        
+        guard let url = URL(string: urlString) else {
+            print("Invalid URL: \(urlString)")
+            return
+        }
+        
+        // Get password from keychain
+        let password = keychain["\(server.id.uuidString)-password"] ?? ""
+        
+        print("Connecting to Transmission at: \(urlString)")
+        
+        // Create Transmission client
+        let client = Transmission(baseURL: url, username: server.user, password: password)
+        
+        // Use Combine to async/await bridge
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            client.request(.torrents(properties: Torrent.PropertyKeys.allCases))
+                .receive(on: DispatchQueue.main)
+                .sink(
+                    receiveCompletion: { completion in
+                        if case let .failure(error) = completion {
+                            print("❌ Failed to fetch torrents: \(error)")
+                        }
+                        continuation.resume()
+                    },
+                    receiveValue: { fetchedTorrents in
+                        torrents = fetchedTorrents
+                        print("✅ Fetched \(fetchedTorrents.count) torrents")
+                    }
+                )
+                .store(in: &cancellables)
         }
     }
 }
@@ -180,3 +280,10 @@ struct DummyTorrent: Identifiable {
     let name: String
     let icon: String
 }
+
+// Dummy data for testing
+let dummyTorrents = [
+    DummyTorrent(name: "Ubuntu 24.04 LTS", icon: "arrow.down.circle"),
+    DummyTorrent(name: "Big Buck Bunny", icon: "arrow.down.circle"),
+    DummyTorrent(name: "Debian 12 ISO", icon: "arrow.down.circle")
+]
