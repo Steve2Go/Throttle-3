@@ -290,9 +290,10 @@ class SFTPManager {
                 throw SFTPError.tailscaleNotAvailable
             }
             
-            let socks5Auth = "tsnet:\(proxyConfig.proxyCredential)"
+            // Format: tsnet:credential@127.0.0.1:port
+            let socks5Address = "tsnet:\(proxyConfig.proxyCredential)@127.0.0.1:\(proxyPort)"
             let sshHost = "\(host):\(port)"
-            return (sshHost, socks5Auth)
+            return (sshHost, socks5Address)
         } else {
             // Direct connection on iOS (if server is directly reachable)
             let sshHost = "\(host):\(port)"

@@ -38,13 +38,7 @@ struct TorrentRows: View {
     
     var body: some View {
         Group {
-            if (tailscaleManager.errorMessage != nil) {
-                ContentUnavailableView {
-                    Label("Tailscale Error", systemImage: "circle.grid.3x3")
-                } description: {
-                    Text(tailscaleManager.errorMessage!)
-                }
-            } else if tailscaleManager.isConnecting {
+            if tailscaleManager.isConnecting {
                 ContentUnavailableView {
                     Label("Connecting Tailscale", systemImage: "circle.grid.3x3")
                         .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
