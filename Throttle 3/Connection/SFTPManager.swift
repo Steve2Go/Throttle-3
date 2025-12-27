@@ -11,6 +11,7 @@ import KeychainAccess
 import SshLib_macOS
 #else
 import SshLib_iOS
+import TailscaleKit
 #endif
 
 /// FileInfo represents remote file metadata
@@ -276,20 +277,29 @@ class SFTPManager {
         let port = server.sshPort
         
         #if os(iOS)
+        // iOS: Use Tailscale's SOCKS5 proxy when enabled
         if server.useTailscale {
             let tsManager = TailscaleManager.shared
             guard tsManager.isConnected else {
                 throw SFTPError.tailscaleNotAvailable
             }
             
-            // TailscaleKit provides SOCKS5 proxy at 127.0.0.1:1080
+            // Get SOCKS5 proxy config from TailscaleManager
+            guard let proxyConfig = tsManager.proxyConfig,
+                  let proxyPort = proxyConfig.port else {
+                throw SFTPError.tailscaleNotAvailable
+            }
+            
+            let socks5Auth = "tsnet:\(proxyConfig.proxyCredential)"
             let sshHost = "\(host):\(port)"
-            return (sshHost, "127.0.0.1:1080")
+            return (sshHost, socks5Auth)
         } else {
+            // Direct connection on iOS (if server is directly reachable)
             let sshHost = "\(host):\(port)"
             return (sshHost, nil)
         }
         #else
+        // macOS: Direct connection (Tailscale works at system level)
         let sshHost = "\(host):\(port)"
         return (sshHost, nil)
         #endif
