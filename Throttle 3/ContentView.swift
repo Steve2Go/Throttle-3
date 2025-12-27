@@ -78,7 +78,17 @@ struct ContentView: View {
         }
         .onAppear {
             columnVisibility = sidebarVisible ? .all : .detailOnly
+            #if os(macOS)
+            // Ensure Tailscale monitoring is active when window appears
+            tailscaleManager.ensureMonitoring()
+            #endif
         }
+        #if os(macOS)
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            // Triggered when a window becomes key (active)
+            tailscaleManager.ensureMonitoring()
+        }
+        #endif
         .onChange(of: columnVisibility) { _, newValue in
             sidebarVisible = (newValue == .all)
         }

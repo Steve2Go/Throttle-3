@@ -16,6 +16,7 @@ struct ServerList: View {
     @State private var editingServer: Servers?
     @EnvironmentObject var store: Store
     @Binding var columnVisibility: NavigationSplitViewVisibility
+    @State private var hasAppeared = false
     
     var body: some View {
             HStack(spacing: 8) {
@@ -57,6 +58,14 @@ struct ServerList: View {
             }
             .onAppear {
                 // Auto-navigate to selected server if it exists
+                // Reset didLoad for new windows on macOS
+                #if os(macOS)
+                if hasAppeared {
+                    store.didLoad = false
+                }
+                hasAppeared = true
+                #endif
+                
                 if !selectedServerUUID.isEmpty && !store.didLoad,
                    let uuid = UUID(uuidString: selectedServerUUID),
                    servers.contains(where: { $0.id == uuid }) {
@@ -65,6 +74,19 @@ struct ServerList: View {
                     store.currentServerID = uuid
                 }
             }
+            #if os(macOS)
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+                // When a new window becomes key, reset and re-navigate
+                store.didLoad = false
+                if !selectedServerUUID.isEmpty,
+                   let uuid = UUID(uuidString: selectedServerUUID),
+                   servers.contains(where: { $0.id == uuid }) {
+                    store.didLoad = true
+                    navigationTrigger = uuid
+                    store.currentServerID = uuid
+                }
+            }
+            #endif
             .background(
                 Group {
                     if let uuid = navigationTrigger,

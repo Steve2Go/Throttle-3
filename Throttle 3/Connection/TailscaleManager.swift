@@ -427,6 +427,11 @@ class TailscaleManager: ObservableObject {
         } else if !statusOutput.isEmpty && statusOutput.contains("100.") {
             // If we have output with Tailscale IPs (100.x.x.x), it's running
             isConnected = true
+            
+            // If we just became connected and are doing rapid checking, switch to slow
+            if !wasConnected && isMonitoring {
+                switchToSlowStatusChecking()
+            }
         } else {
             isConnected = false
         }
@@ -443,7 +448,7 @@ class TailscaleManager: ObservableObject {
     
     @MainActor
     func startStatusMonitoring() {
-        guard !isMonitoring else { return }
+       // guard !isMonitoring else { return }
         ensureInitialized()
         
         isMonitoring = true
@@ -455,10 +460,25 @@ class TailscaleManager: ObservableObject {
         // Start with rapid checking (3 seconds) for initial state
         startRapidStatusChecking()
         
-        // After 15 seconds, switch to slow checking
+        // After 15 seconds, switch to slow checking only if connected
         Task {
             try? await Task.sleep(nanoseconds: 15_000_000_000) // 15 seconds
-            switchToSlowStatusChecking()
+            await MainActor.run {
+                if self.isConnected {
+                    self.switchToSlowStatusChecking()
+                }
+            }
+        }
+    }
+    
+    @MainActor
+    func ensureMonitoring() {
+        // Public method to ensure monitoring is active (called when windows appear)
+        if !isMonitoring {
+            startStatusMonitoring()
+        } else {
+            // Already monitoring, just do a status check
+            checkStatus()
         }
     }
     
