@@ -42,12 +42,13 @@ class SFTPManager {
         useTunnel: Bool = false
     ) async throws -> [SFTPFileInfo] {
         let credentials = try loadCredentials(for: server)
-        let (sshHost, socks5Address) = try await getConnectionParams(server: server, useTunnel: useTunnel)
+        let (sshHost, socks5Address, socks5ProxyAuth) = try await getConnectionParams(server: server, useTunnel: useTunnel)
         
         var error: NSError?
         let jsonString = SshlibSftpListDirectory(
             sshHost,
             socks5Address,
+            socks5ProxyAuth,
             server.sshUser,
             credentials.password,
             credentials.privateKey,
@@ -75,12 +76,13 @@ class SFTPManager {
         useTunnel: Bool = false
     ) async throws {
         let credentials = try loadCredentials(for: server)
-        let (sshHost, socks5Address) = try await getConnectionParams(server: server, useTunnel: useTunnel)
+        let (sshHost, socks5Address, socks5ProxyAuth) = try await getConnectionParams(server: server, useTunnel: useTunnel)
         
         var error: NSError?
         let success = SshlibSftpDownloadFile(
             sshHost,
             socks5Address,
+            socks5ProxyAuth,
             server.sshUser,
             credentials.password,
             credentials.privateKey,
@@ -106,12 +108,13 @@ class SFTPManager {
         useTunnel: Bool = false
     ) async throws {
         let credentials = try loadCredentials(for: server)
-        let (sshHost, socks5Address) = try await getConnectionParams(server: server, useTunnel: useTunnel)
+        let (sshHost, socks5Address, socks5ProxyAuth) = try await getConnectionParams(server: server, useTunnel: useTunnel)
         
         var error: NSError?
         let success = SshlibSftpUploadFile(
             sshHost,
             socks5Address,
+            socks5ProxyAuth,
             server.sshUser,
             credentials.password,
             credentials.privateKey,
@@ -136,12 +139,13 @@ class SFTPManager {
         useTunnel: Bool = false
     ) async throws {
         let credentials = try loadCredentials(for: server)
-        let (sshHost, socks5Address) = try await getConnectionParams(server: server, useTunnel: useTunnel)
+        let (sshHost, socks5Address, socks5ProxyAuth) = try await getConnectionParams(server: server, useTunnel: useTunnel)
         
         var error: NSError?
         let success = SshlibSftpDeleteFile(
             sshHost,
             socks5Address,
+            socks5ProxyAuth,
             server.sshUser,
             credentials.password,
             credentials.privateKey,
@@ -165,12 +169,13 @@ class SFTPManager {
         useTunnel: Bool = false
     ) async throws {
         let credentials = try loadCredentials(for: server)
-        let (sshHost, socks5Address) = try await getConnectionParams(server: server, useTunnel: useTunnel)
+        let (sshHost, socks5Address, socks5ProxyAuth) = try await getConnectionParams(server: server, useTunnel: useTunnel)
         
         var error: NSError?
         let success = SshlibSftpMakeDirectory(
             sshHost,
             socks5Address,
+            socks5ProxyAuth,
             server.sshUser,
             credentials.password,
             credentials.privateKey,
@@ -194,12 +199,13 @@ class SFTPManager {
         useTunnel: Bool = false
     ) async throws -> SFTPFileInfo {
         let credentials = try loadCredentials(for: server)
-        let (sshHost, socks5Address) = try await getConnectionParams(server: server, useTunnel: useTunnel)
+        let (sshHost, socks5Address, socks5ProxyAuth) = try await getConnectionParams(server: server, useTunnel: useTunnel)
         
         var error: NSError?
         let jsonString = SshlibSftpStat(
             sshHost,
             socks5Address,
+            socks5ProxyAuth,
             server.sshUser,
             credentials.password,
             credentials.privateKey,
@@ -227,12 +233,13 @@ class SFTPManager {
         useTunnel: Bool = false
     ) async throws {
         let credentials = try loadCredentials(for: server)
-        let (sshHost, socks5Address) = try await getConnectionParams(server: server, useTunnel: useTunnel)
+        let (sshHost, socks5Address, socks5ProxyAuth) = try await getConnectionParams(server: server, useTunnel: useTunnel)
         
         var error: NSError?
         let success = SshlibSftpRename(
             sshHost,
             socks5Address,
+            socks5ProxyAuth,
             server.sshUser,
             credentials.password,
             credentials.privateKey,
@@ -271,7 +278,7 @@ class SFTPManager {
     private func getConnectionParams(
         server: Servers,
         useTunnel: Bool
-    ) async throws -> (sshHost: String, socks5Address: String?) {
+    ) async throws -> (sshHost: String, socks5Address: String, socks5ProxyAuth: String) {
         // Use serverAddress as fallback if sshHost is empty (same as tunnel logic)
         let host = server.sshHost.isEmpty ? server.serverAddress : server.sshHost
         let port = server.sshPort
@@ -290,19 +297,20 @@ class SFTPManager {
                 throw SFTPError.tailscaleNotAvailable
             }
             
-            // Format: tsnet:credential@127.0.0.1:port
-            let socks5Address = "tsnet:\(proxyConfig.proxyCredential)@127.0.0.1:\(proxyPort)"
+            // Separate parameters: address and auth
+            let socks5Address = "127.0.0.1:\(proxyPort)"
+            let socks5ProxyAuth = "tsnet:\(proxyConfig.proxyCredential)"
             let sshHost = "\(host):\(port)"
-            return (sshHost, socks5Address)
+            return (sshHost, socks5Address, socks5ProxyAuth)
         } else {
             // Direct connection on iOS (if server is directly reachable)
             let sshHost = "\(host):\(port)"
-            return (sshHost, nil)
+            return (sshHost, "", "")
         }
         #else
         // macOS: Direct connection (Tailscale works at system level)
         let sshHost = "\(host):\(port)"
-        return (sshHost, nil)
+        return (sshHost, "", "")
         #endif
     }
 }
