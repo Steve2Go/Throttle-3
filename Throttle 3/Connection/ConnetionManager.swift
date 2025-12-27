@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 import Combine
 import KeychainAccess
+import Transmission
 
 //1 - Tailscale if set, or tunnel()
 
@@ -28,7 +29,10 @@ class ConnectionManager: ObservableObject {
     
     private let tailscaleManager = TailscaleManager.shared
     private let tunnelManager = TunnelManager.shared
+    private let sshManager = SSHManager.shared
+    private let sftpManager = SFTPManager.shared
     private let keychain = Keychain(service: "com.srgim.throttle3")
+    private var cancellables = Set<AnyCancellable>()
     
     private init() {}
     
@@ -149,17 +153,43 @@ class ConnectionManager: ObservableObject {
     }
     
     private func startFileServerTunnel(server: Servers) async {
-
-        
         print("🔧 Starting file server tunnel...")
         
         let credentials = loadCredentials(for: server)
-        
-
-        // Use port + 18000 for file server local (e.g., 80 -> 18080, 9091 -> 27091)
-        let localFileServerPort = (Int(server.serverPort) ?? 80) + 18000
-        // File server typically runs on different port on remote, use port + 10000
         let remoteFileServerPort = (Int(server.serverPort) ?? 80) + 10000
+        
+        // Step 1: Wait for web tunnel if needed, then get Transmission download directory
+        var downloadDir: String?
+        
+        if server.tunnelWebOverSSH {
+            // Wait for web tunnel to be active
+            print("⏳ Waiting for web tunnel to get Transmission session info...")
+            var attempts = 0
+            while attempts < 20 && tunnelManager.getTunnelState(id: "web")?.isActive != true {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                attempts += 1
+            }
+        }
+        
+        // Get download directory from Transmission
+        downloadDir = await getTransmissionDownloadDir(server: server)
+        
+        if downloadDir == nil {
+            print("⚠️ Could not get Transmission download directory, using default ~/Downloads")
+            downloadDir = "~/Downloads"
+        } else {
+            print("✓ Transmission download directory: \(downloadDir!)")
+        }
+        
+        // Step 2: Setup dufs on remote server
+        do {
+            try await setupDufsServer(server: server, downloadDir: downloadDir!, port: remoteFileServerPort)
+        } catch {
+            print("❌ Failed to setup dufs server: \(error)")
+        }
+        
+        // Step 3: Start SSH tunnel for file server
+        let localFileServerPort = (Int(server.serverPort) ?? 80) + 18000
         
         let config = SSHTunnelConfig(
             sshHost: server.sshHost.isEmpty ? server.serverAddress : server.sshHost,
@@ -176,6 +206,160 @@ class ConnectionManager: ObservableObject {
             print("✓ File server tunnel connected on port \(state.localPort ?? 0)")
         } else if let state = tunnelManager.getTunnelState(id: "fileserver"), let error = state.errorMessage {
             print("❌ File server tunnel failed: \(error)")
+        }
+    }
+    
+    // MARK: - File Server Setup
+    
+    /// Get Transmission download directory from session
+    private func getTransmissionDownloadDir(server: Servers) async -> String? {
+        // Build Transmission URL
+        let scheme = server.usesSSL ? "https" : "http"
+        var host: String
+        var port: Int
+        
+        if server.tunnelWebOverSSH {
+            host = "127.0.0.1"
+            port = (Int(server.serverPort) ?? 80) + 8000
+        } else if server.useTailscale {
+            host = server.serverAddress
+            port = Int(server.reverseProxyPort) ?? (Int(server.serverPort) ?? 9091)
+        } else {
+            host = server.serverAddress
+            port = Int(server.serverPort) ?? 9091
+        }
+        
+        let urlString = "\(scheme)://\(host):\(port)"
+        guard let url = URL(string: urlString) else {
+            print("❌ Invalid Transmission URL: \(urlString)")
+            return nil
+        }
+        
+        let password = keychain["\(server.id.uuidString)-password"] ?? ""
+        let client = Transmission(baseURL: url, username: server.user, password: password)
+        
+        // Create custom request for session-get to get download-dir
+        let sessionRequest = Request<String>(
+            method: "session-get",
+            args: ["fields": ["download-dir"]],
+            transform: { response -> Result<String, TransmissionError> in
+                guard let arguments = response["arguments"] as? [String: Any],
+                      let downloadDir = arguments["download-dir"] as? String
+                else {
+                    return .failure(.unexpectedResponse)
+                }
+                return .success(downloadDir)
+            }
+        )
+        
+        return await withCheckedContinuation { continuation in
+            client.request(sessionRequest)
+                .receive(on: DispatchQueue.main)
+                .sink(
+                    receiveCompletion: { completion in
+                        if case let .failure(error) = completion {
+                            print("❌ Failed to get Transmission session: \(error)")
+                            continuation.resume(returning: nil)
+                        }
+                    },
+                    receiveValue: { downloadDir in
+                        continuation.resume(returning: downloadDir)
+                    }
+                )
+                .store(in: &cancellables)
+        }
+    }
+    
+    /// Setup dufs server on remote machine
+    private func setupDufsServer(server: Servers, downloadDir: String, port: Int) async throws {
+        print("📦 Setting up dufs server...")
+        
+        // Step 1: Upload install script - try multiple paths
+        var scriptURL = Bundle.main.url(forResource: "install-tools", withExtension: "sh", subdirectory: "Resources")
+        if scriptURL == nil {
+            scriptURL = Bundle.main.url(forResource: "install-tools", withExtension: "sh")
+        }
+        
+        guard let scriptURL = scriptURL else {
+            throw NSError(domain: "ConnectionManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "install-tools.sh not found in bundle"])
+        }
+        
+        print("📄 Found script at: \(scriptURL.path)")
+        
+        let tempScriptPath = NSTemporaryDirectory() + "install-tools.sh"
+        let tempScriptURL = URL(fileURLWithPath: tempScriptPath)
+        
+        // Remove existing temp file if it exists
+        try? FileManager.default.removeItem(at: tempScriptURL)
+        
+        // Copy script to temp location
+        try FileManager.default.copyItem(at: scriptURL, to: tempScriptURL)
+        
+        print("📤 Uploading install script...")
+        try await sftpManager.uploadFile(
+            server: server,
+            localPath: tempScriptPath,
+            remotePath: ".throttle3/install-tools.sh",
+            useTunnel: false
+        )
+        
+        // Clean up temp file
+        try? FileManager.default.removeItem(atPath: tempScriptPath)
+        
+        // Step 2: Make script executable and run it
+        print("🔧 Installing dufs and ffmpeg...")
+        _ = try await sshManager.executeCommand(
+            server: server,
+            command: "chmod +x ~/.throttle3/install-tools.sh && bash ~/.throttle3/install-tools.sh",
+            timeout: 180,
+            useTunnel: false
+        )
+        
+        print("✓ Tools installed")
+        
+        // Step 3: Kill any existing dufs on this port
+        print("🔍 Checking for existing dufs on port \(port)...")
+        let killCommand = "pkill -f 'dufs.*-p \(port)' || true"
+        _ = try? await sshManager.executeCommand(
+            server: server,
+            command: killCommand,
+            timeout: 5,
+            useTunnel: false
+        )
+        
+        // Step 4: Start dufs server
+        let password = keychain["\(server.id.uuidString)-password"] ?? ""
+        let dufsCommand = """
+        nohup ~/.throttle3/bin/dufs '\(downloadDir)' \
+            -p \(port) \
+            --bind 127.0.0.1 \
+            -a '\(server.user):\(password)@/:rw' \
+            > ~/.throttle3/dufs.log 2>&1 &
+        """
+        
+        print("🚀 Starting dufs server on port \(port)...")
+        try await sshManager.executeCommandBackground(
+            server: server,
+            command: dufsCommand,
+            useTunnel: false
+        )
+        
+        // Give dufs a moment to start
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        
+        // Verify it's running
+        let checkCommand = "ss -tln | grep '127.0.0.1:\(port)' || lsof -i TCP:\(port) -sTCP:LISTEN || echo 'not running'"
+        let checkOutput = try await sshManager.executeCommand(
+            server: server,
+            command: checkCommand,
+            timeout: 5,
+            useTunnel: false
+        )
+        
+        if checkOutput.contains("not running") {
+            print("❌ dufs failed to start - check ~/.throttle3/dufs.log on remote server")
+        } else {
+            print("✓ dufs server running on port \(port)")
         }
     }
     

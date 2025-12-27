@@ -105,21 +105,21 @@ class SSHManager {
     
     // MARK: - Helper Methods
     
-    private func loadCredentials(for server: Servers) throws -> (password: String?, privateKey: String?) {
+    private func loadCredentials(for server: Servers) throws -> (password: String, privateKey: String) {
         if server.sshUsesKey {
             // Load private key from keychain
             guard let privateKey = try? Keychain(service: "com.srgim.throttle3")
-                .getString("\(server.id.uuidString)-ssh-key") else {
+                .getString("\(server.id.uuidString)-sshkey") else {
                 throw SSHError.missingCredentials
             }
-            return (password: nil, privateKey: privateKey)
+            return (password: "", privateKey: privateKey)
         } else {
             // Load password from keychain
             guard let password = try? Keychain(service: "com.srgim.throttle3")
-                .getString("\(server.id.uuidString)-ssh-password") else {
+                .getString("\(server.id.uuidString)-sshpassword") else {
                 throw SSHError.missingCredentials
             }
-            return (password: password, privateKey: nil)
+            return (password: password, privateKey: "")
         }
     }
     
@@ -127,6 +127,10 @@ class SSHManager {
         server: Servers,
         useTunnel: Bool
     ) async throws -> (sshHost: String, socks5Address: String?) {
+        // Use serverAddress as fallback if sshHost is empty (same as tunnel logic)
+        let host = server.sshHost.isEmpty ? server.serverAddress : server.sshHost
+        let port = server.sshPort
+        
         #if os(iOS)
         // iOS: Use Tailscale's SOCKS5 proxy when enabled
         if server.useTailscale {
@@ -136,16 +140,16 @@ class SSHManager {
             }
             
             // TailscaleKit provides SOCKS5 proxy at 127.0.0.1:1080
-            let sshHost = "\(server.sshHost):\(server.sshPort)"
+            let sshHost = "\(host):\(port)"
             return (sshHost, "127.0.0.1:1080")
         } else {
             // Direct connection on iOS (if server is directly reachable)
-            let sshHost = "\(server.sshHost):\(server.sshPort)"
+            let sshHost = "\(host):\(port)"
             return (sshHost, nil)
         }
         #else
         // macOS: Direct connection to tailnet hostname
-        let sshHost = "\(server.sshHost):\(server.sshPort)"
+        let sshHost = "\(host):\(port)"
         return (sshHost, nil)
         #endif
     }
