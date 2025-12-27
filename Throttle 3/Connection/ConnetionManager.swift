@@ -162,12 +162,20 @@ class ConnectionManager: ObservableObject {
         var downloadDir: String?
         
         if server.tunnelWebOverSSH {
-            // Wait for web tunnel to be active
-            print("⏳ Waiting for web tunnel to get Transmission session info...")
+            // Wait for web tunnel port to be listening
+            print("⏳ Waiting for web tunnel to be ready...")
             var attempts = 0
-            while attempts < 20 && tunnelManager.getTunnelState(id: "web")?.isActive != true {
+            while attempts < 20 {
+                if await tunnelManager.checkTunnelConnectivity(id: "web") {
+                    print("✓ Web tunnel is ready")
+                    break
+                }
                 try? await Task.sleep(nanoseconds: 500_000_000)
                 attempts += 1
+            }
+            
+            if attempts >= 20 {
+                print("⚠️ Web tunnel timeout, proceeding anyway...")
             }
         }
         
