@@ -37,72 +37,120 @@ struct TorrentRows: View {
     }
     
     var body: some View {
-        HStack(spacing: 8) {
-            if isLoadingTorrents {
-                ProgressView()
-                    .padding()
-            } else if torrents.isEmpty {
-                ForEach(dummyTorrents) { torrent in
-                    Button {
-                        print("Selected torrent: \(torrent.name)")
-                        // TODO: Navigate to torrent detail
-                    }
-                        label:{
-                            Image(systemName: torrent.icon)
-                                .padding(.leading, 6)
-                                .foregroundStyle(.primary)
-                        
-                            Text(torrent.name)
-                                .padding(.leading, 0)
-                                .foregroundColor(.primary)
-                        
-                    }
-                    .buttonStyle(.plain)
+        Group {
+            if (tailscaleManager.errorMessage != nil) {
+                ContentUnavailableView {
+                    Label("Tailscale Error", systemImage: "circle.grid.3x3")
+                } description: {
+                    Text(tailscaleManager.errorMessage!)
                 }
-            } else {
-                ForEach(torrents, id: \.hash) { torrent in
-                    Button {
-                        print("Selected torrent: \(torrent.name ?? "Unknown")")
-                        // TODO: Navigate to torrent detail
-                    }
-                        label:{
-                            Image(systemName: "arrow.down.circle")
-                                .padding(.leading, 6)
-                                .foregroundStyle(.primary)
+            } else if tailscaleManager.isConnecting {
+                ContentUnavailableView {
+                    Label("Connecting Tailscale", systemImage: "circle.grid.3x3")
+                        .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
+                }
+            }
+            else if (currentServer != nil) && (connectionManager.isConnecting || ((currentServer!.tunnelWebOverSSH || currentServer!.tunnelFilesOverSSH)) && !connectionManager.isConnected && ((currentServer?.useTailscale) != false && tailscaleManager.isConnected) || ((currentServer?.useTailscale) == false)) {
+                ContentUnavailableView {
+                    Label("Tunneling...", systemImage: "externaldrive.connected.to.line.below")
+                        .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
+                }
+            } else if isLoadingTorrents {
+                ContentUnavailableView {
+                    Label("Fetching...", systemImage: "arrow.up.arrow.down.square")
+                        .symbolEffect(.bounce.up.byLayer, options: .repeat(.periodic(delay: 0.0)))
+                }
+            }  else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(torrents, id: \.hash) { torrent in
+                       
+                                HStack {
+                                    //thumbnail
+                                    Button {
+                                        print("Selected torrent: \(torrent.name ?? "Unknown")")
+                                        // TODO: Navigate to torrent detail
+                                    }
+                                    label:{
+                                        VStack (alignment: .leading) {
+                                            HStack {
+                                                Image(systemName: iconForStatus(torrent.status?.rawValue))
+                                                    .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive:  torrent.status?.rawValue == 2)
+                                                    .padding(.leading, 6)
+                                                    .foregroundStyle(.primary)
+                                                
+                                                Text(torrent.name ?? "Unknown")
+                                                    .padding(.leading, 0)
+                                                    .foregroundColor(.primary)
+                                            }
+                                            //status
+                                            switch torrent.status?.rawValue {
+                                            case 0:
+                                                ProgressView(value: torrent.progress)
+                                                    .tint(.red)
+                                            case 2:
+                                                ProgressView(value: torrent.progress)
+                                                    .tint(.yellow)
+                                            case 4:
+                                                ProgressView(value: torrent.progress)
+                                                    .tint(.blue)
+                                            case 6:
+                                                ProgressView(value: torrent.progress)
+                                                    .tint(.green)
+                    //                        case 6:
+                    //                            ProgressView(value: torrent.progress)
+                    //                                .tint(.orange)
+                                            default:
+                                                ProgressView(value: torrent.progress)
+                                                    .tint(.gray)
+                                            }
+                                            Text("Downloaded \(formatBytes(torrent.bytesValid ?? 0)) of \(formatBytes(torrent.size ?? 0))")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
                         
-                            Text(torrent.name ?? "Unknown")
-                                .padding(.leading, 0)
-                                .foregroundColor(.primary)
-                        
                     }
-                    .buttonStyle(.plain)
+                    .padding()
+                }
+                .refreshable {
+                    Task {
+                        await fetchTorrents()
+                    }
                 }
             }
         }
-        .padding()
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
                
-                if tailscaleManager.isConnecting {
-                    Button(action: {}) {
-                        Image(systemName: "circle.grid.3x3")
-                        .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
-                    }
-                } else if connectionManager.isConnecting {
+//                if tailscaleManager.isConnecting {
+//                    Button(action: {}) {
+//                        Image(systemName: "circle.grid.3x3")
+//                        .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
+//                    }
+//                } else
+#if os(macOS)
+                if connectionManager.isConnecting {
                     Button(action: {}) {
                         Image(systemName: "externaldrive.connected.to.line.below")
                         .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
                     }
                 } else {
+                    
                     Button(action: {
                         Task {
                             await fetchTorrents()
                         }
                     }) {
                         Image(systemName: "arrow.clockwise")
+                            .symbolEffect(.rotate, options: .repeat(.periodic(delay: 0.5)), isActive: isLoadingTorrents)
                     }
+                    
                 }
-
+#endif
                 
                 Button(action: {}) {
                     Image(systemName: "plus")
@@ -271,6 +319,30 @@ struct TorrentRows: View {
                 )
                 .store(in: &cancellables)
         }
+    }
+    
+    // MARK: - Helpers
+    
+    private func iconForStatus(_ status: Int?) -> String {
+        switch status {
+        case 0:
+            return "xmark.icloud"
+        case 2:
+            return "arrow.trianglehead.clockwise.icloud"
+        case 4:
+            return "icloud.and.arrow.down"
+        case 6:
+            return "icloud.and.arrow.up"
+        default:
+            return "icloud"
+        }
+    }
+    
+    private func formatBytes(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        formatter.allowedUnits = [.useKB, .useMB, .useGB, .useTB]
+        return formatter.string(fromByteCount: bytes)
     }
 }
 
