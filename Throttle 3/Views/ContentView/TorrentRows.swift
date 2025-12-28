@@ -22,10 +22,13 @@ struct TorrentRows: View {
     @ObservedObject private var tailscaleManager = TailscaleManager.shared
     @ObservedObject private var tunnelManager = TunnelManager.shared
     @ObservedObject private var connectionManager = ConnectionManager.shared
+    @ObservedObject private var thumbnailManager = TorrentThumbnailManager.shared
     @State private var showServerList = false
     @State private var torrents: [Torrent] = []
     @State private var isLoadingTorrents = false
     @State private var cancellables = Set<AnyCancellable>()
+    @State private var visibleTorrentHashes: Set<String> = []
+    @State private var thumbnailDebounceTask: Task<Void, Never>?
     @Query private var servers: [Servers]
     let keychain = Keychain(service: "com.srgim.throttle3")
     
@@ -56,16 +59,50 @@ struct TorrentRows: View {
                 }
             }  else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
+                    LazyVStack(alignment: .leading, spacing: 8) {
                         ForEach(torrents, id: \.hash) { torrent in
                        
                                 HStack {
-                                    Image("placeholder")
-                                        .resizable()
-                                        .scaledToFill()
-                                        .opacity(0.3)
-                                        .frame(width: 50, height: 50)
-                                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                                    // Thumbnail display
+                                    Group {
+                                        if let progress = torrent.progress, progress < 1.0 {
+                                            // Downloading
+                                            Image(systemName: "arrow.down.circle")
+                                                .font(.system(size: 40))
+                                                .foregroundStyle(.secondary)
+                                        } else if let thumbnail = thumbnailManager.getThumbnail(for: torrent) {
+                                            // Has cached thumbnail
+                                            #if os(macOS)
+                                            Image(nsImage: thumbnail)
+                                                .resizable()
+                                                .scaledToFill()
+                                            #else
+                                            Image(uiImage: thumbnail)
+                                                .resizable()
+                                                .scaledToFill()
+                                            #endif
+                                        } else {
+                                            // Complete but no thumbnail yet
+                                            Image(systemName: "photo.fill")
+                                                .font(.system(size: 40))
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    .frame(width: 50, height: 50)
+                                    .background(Color.secondary.opacity(0.1))
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                                    .onAppear {
+                                        if let hash = torrent.hash {
+                                            visibleTorrentHashes.insert(hash)
+                                            scheduleThumbnailGeneration()
+                                        }
+                                    }
+                                    .onDisappear {
+                                        if let hash = torrent.hash {
+                                            visibleTorrentHashes.remove(hash)
+                                        }
+                                    }
+                                    
                                     Button {
                                         print("Selected torrent: \(torrent.name ?? "Unknown")")
                                         // TODO: Navigate to torrent detail
@@ -342,6 +379,43 @@ struct TorrentRows: View {
         formatter.countStyle = .file
         formatter.allowedUnits = [.useKB, .useMB, .useGB, .useTB]
         return formatter.string(fromByteCount: bytes)
+    }
+    
+    // MARK: - Thumbnail Generation
+    
+    private func scheduleThumbnailGeneration() {
+        // Cancel previous debounce task
+        thumbnailDebounceTask?.cancel()
+        
+        // Start new debounce task (1 second delay)
+        thumbnailDebounceTask = Task {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            
+            guard !Task.isCancelled else { return }
+            await generateVisibleThumbnails()
+        }
+    }
+    
+    private func generateVisibleThumbnails() async {
+        guard let server = currentServer else { return }
+        
+        // Get visible torrents
+        let visibleTorrents = torrents.filter { torrent in
+            guard let hash = torrent.hash else { return false }
+            return visibleTorrentHashes.contains(hash)
+        }
+        
+        guard !visibleTorrents.isEmpty else { return }
+        
+        // Get download directory from ConnectionManager
+        // For now, use a default or query from Transmission session
+        let downloadDir = "~/Downloads" // TODO: Get from ConnectionManager or Transmission session
+        
+        await thumbnailManager.generateThumbnails(
+            for: visibleTorrents,
+            server: server,
+            downloadDir: downloadDir
+        )
     }
 }
 
