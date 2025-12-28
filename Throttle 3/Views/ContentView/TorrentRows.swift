@@ -60,7 +60,12 @@ struct TorrentRows: View {
                         ForEach(torrents, id: \.hash) { torrent in
                        
                                 HStack {
-                                    //thumbnail
+                                    Image("placeholder")
+                                        .resizable()
+                                        .scaledToFill()
+                                        .opacity(0.3)
+                                        .frame(width: 50, height: 50)
+                                        .clipShape(RoundedRectangle(cornerRadius: 6))
                                     Button {
                                         print("Selected torrent: \(torrent.name ?? "Unknown")")
                                         // TODO: Navigate to torrent detail

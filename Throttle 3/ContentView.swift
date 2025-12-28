@@ -94,7 +94,7 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showTailscaleSheet) {
             TailscaleToggle()
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.height(150)])
         }
     }
 }
