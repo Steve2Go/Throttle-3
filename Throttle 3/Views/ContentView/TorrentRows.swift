@@ -83,12 +83,12 @@ struct TorrentRows: View {
                                             #endif
                                         } else {
                                             // Complete but no thumbnail yet
-                                            Image(systemName: "photo.fill")
+                                            Image("placeholder-black")
                                                 .font(.system(size: 40))
                                                 .foregroundStyle(.secondary)
                                         }
                                     }
-                                    .frame(width: 50, height: 50)
+                                    .frame(width: 70, height: 70)
                                     .background(Color.secondary.opacity(0.1))
                                     .clipShape(RoundedRectangle(cornerRadius: 6))
                                     .onAppear {

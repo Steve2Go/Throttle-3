@@ -53,7 +53,7 @@ class TorrentThumbnailManager: ObservableObject {
             return thumbnail
         }
         
-        // Check disk cache
+        // Check disk cache for generated thumbnails
         let cacheURL = cacheDirectory.appendingPathComponent("\(hash).jpg")
         if FileManager.default.fileExists(atPath: cacheURL.path) {
             #if os(macOS)
@@ -68,6 +68,27 @@ class TorrentThumbnailManager: ObservableObject {
             if let data = try? Data(contentsOf: cacheURL),
                let image = UIImage(data: data) {
                 // Defer update to avoid publishing during view updates
+                Task { @MainActor in
+                    self.thumbnails[hash] = image
+                }
+                return image
+            }
+            #endif
+        }
+        
+        // For non-media files, return asset icon based on file type
+        if let iconName = getFileTypeIcon(for: torrent) {
+            #if os(macOS)
+            if let image = NSImage(named: iconName) {
+                // Cache the asset icon
+                Task { @MainActor in
+                    self.thumbnails[hash] = image
+                }
+                return image
+            }
+            #else
+            if let image = UIImage(named: iconName) {
+                // Cache the asset icon
                 Task { @MainActor in
                     self.thumbnails[hash] = image
                 }
@@ -127,8 +148,9 @@ class TorrentThumbnailManager: ObservableObject {
             return
         }
         
-        // Step 2: Find largest video file for each torrent
+        // Step 2: Find largest video file for each torrent, assign asset icons for non-media
         var torrentFiles: [(hash: String, filePath: String)] = []
+        var nonMediaTorrents: [Torrent] = []
         
         for torrent in torrents {
             guard let hash = torrent.hash,
@@ -143,7 +165,27 @@ class TorrentThumbnailManager: ObservableObject {
                 torrentFiles.append((hash: hash, filePath: largestFile))
                 print("📹 Found video for \(torrent.name ?? hash): \(largestFile)")
             } else {
-                print("⚠️ Could not find media file for \(torrent.name ?? hash)")
+                // Not a video torrent - assign appropriate file type icon
+                print("📄 Non-media torrent \(torrent.name ?? hash), assigning file type icon")
+                nonMediaTorrents.append(torrent)
+                
+                // Load asset icon immediately
+                await MainActor.run {
+                    let iconName = getFileTypeIconFromFiles(files: files)
+                    #if os(macOS)
+                    if let image = NSImage(named: iconName) {
+                        Task { @MainActor in
+                            self.thumbnails[hash] = image
+                        }
+                    }
+                    #else
+                    if let image = UIImage(named: iconName) {
+                        Task { @MainActor in
+                            self.thumbnails[hash] = image
+                        }
+                    }
+                    #endif
+                }
             }
         }
         
@@ -324,6 +366,49 @@ class TorrentThumbnailManager: ObservableObject {
         }
         
         return "\(basePath)/\(largestFile.name)"
+    }
+    
+    /// Get file type icon name from torrent info
+    private func getFileTypeIcon(for torrent: Torrent) -> String? {
+        // Check if torrent name indicates a folder
+        if let name = torrent.name {
+            let ext = (name as NSString).pathExtension.lowercased()
+            return getIconForExtension(ext)
+        }
+        return "file-document" // Default fallback
+    }
+    
+    /// Get file type icon from file list
+    private func getFileTypeIconFromFiles(files: [TorrentFile]) -> String {
+        // Check the largest file to determine type
+        guard let largestFile = files.max(by: { $0.size < $1.size }) else {
+            return "file-document"
+        }
+        
+        let ext = (largestFile.name as NSString).pathExtension.lowercased()
+        return getIconForExtension(ext)
+    }
+    
+    /// Map file extension to asset icon name
+    private func getIconForExtension(_ ext: String) -> String {
+        let audioExtensions = ["mp3", "wav", "flac", "aac", "ogg", "m4a", "wma", "aiff"]
+        let videoExtensions = ["mp4", "mkv", "avi", "mov", "m4v", "wmv", "flv", "webm", "ts", "m2ts"]
+        let imageExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp", "ico"]
+        let archiveExtensions = ["zip", "rar", "7z", "tar", "gz", "bz2", "xz", "iso", "dmg"]
+        
+        if audioExtensions.contains(ext) {
+            return "file-audio"
+        } else if videoExtensions.contains(ext) {
+            return "file-video"
+        } else if imageExtensions.contains(ext) {
+            return "file-image"
+        } else if archiveExtensions.contains(ext) {
+            return "file-archive"
+        } else if ext.isEmpty {
+            return "folder" // No extension likely means it's a folder
+        } else {
+            return "file-document" // Default fallback
+        }
     }
     
     /// Create a Transmission client for the given server
