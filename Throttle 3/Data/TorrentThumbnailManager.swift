@@ -431,7 +431,7 @@ class TorrentThumbnailManager: ObservableObject {
             port = Int(server.serverPort) ?? 9091
         }
         
-        let urlString = "\(scheme)://\(host):\(port)"
+        let urlString = "\(scheme)://\(host):\(port)\(server.rpcPath)"
         guard let url = URL(string: urlString) else {
             print("❌ Invalid Transmission URL: \(urlString)")
             return nil

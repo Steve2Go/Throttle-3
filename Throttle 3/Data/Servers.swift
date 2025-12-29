@@ -18,6 +18,7 @@ final class Servers {
     var url: String = ""
     var sshHost: String = ""
     var user: String = ""
+    var rpcPath: String = "/transmission/rpc"
     var sshAddress: String? {
         if sshOn && !sshHost.isEmpty {
             return "\(sshUser)@\(url)"
@@ -42,7 +43,7 @@ final class Servers {
     var useTailscale: Bool = false
     var serveFilesOverTunnels: Bool = false
     
-    init(name: String = "", id: UUID = UUID(), serverAddress: String = "", serverPort: String = "", usesSSL: Bool = false, url: String = "", user: String = "", sshOn: Bool = false, sshHost: String = "", sshUser: String = "", sshUsesKey: Bool = false, sshPort: String = "22", tunnelWebOverSSH: Bool = false, tunnelFilesOverSSH: Bool = false, tunnelPort: String = "", reverseProxyPort: String = "", sftpBase: String = "", useTailscale: Bool = false, serveFilesOverTunnels: Bool = false) {
+    init(name: String = "", id: UUID = UUID(), serverAddress: String = "", serverPort: String = "", usesSSL: Bool = false, url: String = "", user: String = "", rpcPath: String = "/transmission/rpc", sshOn: Bool = false, sshHost: String = "", sshUser: String = "", sshUsesKey: Bool = false, sshPort: String = "22", tunnelWebOverSSH: Bool = false, tunnelFilesOverSSH: Bool = false, tunnelPort: String = "", reverseProxyPort: String = "", sftpBase: String = "", useTailscale: Bool = false, serveFilesOverTunnels: Bool = false) {
         self.name = name
         self.id = id
         self.serverAddress = serverAddress
@@ -50,6 +51,7 @@ final class Servers {
         self.usesSSL = usesSSL
         self.url = url
         self.user = user
+        self.rpcPath = rpcPath
         self.sshHost = sshHost.isEmpty ? serverAddress : sshHost
         self.sshOn = sshOn
         self.sshUser = sshUser

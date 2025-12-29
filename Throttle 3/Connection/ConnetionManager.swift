@@ -26,6 +26,7 @@ class ConnectionManager: ObservableObject {
     @Published var isConnecting: Bool = false
     @Published var isConnected: Bool = false
     @Published var errorMessage: String?
+    @Published var currentServerID: UUID?
     
     private let tailscaleManager = TailscaleManager.shared
     private let tunnelManager = TunnelManager.shared
@@ -64,10 +65,10 @@ class ConnectionManager: ObservableObject {
         guard !isConnecting else { return }
         
         isConnecting = true
-        
+        currentServerID = server.id
         errorMessage = nil
         
-        print("🔌 ConnectionManager: Starting connection for server '\(server.name)'")
+        print("🔌 ConnectionManager: Starting connection for server '\(server.name)' (ID: \(server.id))")
         
         // Clear all previous tunnel states to avoid port conflicts
         tunnelManager.stopAllTunnels()
@@ -127,7 +128,9 @@ class ConnectionManager: ObservableObject {
     func disconnect() {
         tunnelManager.stopAllTunnels()
         isConnected = false
-        print("✓ ConnectionManager: All tunnels disconnected")
+        isConnecting = false
+        currentServerID = nil
+        print("✓ ConnectionManager: All tunnels disconnected, state cleared")
     }
     
     // MARK: - Private Methods
@@ -241,7 +244,7 @@ class ConnectionManager: ObservableObject {
             port = Int(server.serverPort) ?? 9091
         }
         
-        let urlString = "\(scheme)://\(host):\(port)"
+        let urlString = "\(scheme)://\(host):\(port)\(server.rpcPath)"
         guard let url = URL(string: urlString) else {
             print("❌ Invalid Transmission URL: \(urlString)")
             return nil

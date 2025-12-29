@@ -26,7 +26,14 @@ struct ServerList: View {
                             TorrentRows(isSidebarVisible: columnVisibility == .all, columnVisibility: $columnVisibility)
                                 .navigationTitle(server.name)
                                 .onAppear {
-                                    selectedServerUUID = server.id.uuidString
+                                    // Only update if switching to a different server
+                                    if selectedServerUUID != server.id.uuidString {
+                                        print("🔄 Switching server from \(selectedServerUUID) to \(server.id.uuidString)")
+                                        // Disconnect from old server before switching
+                                        ConnectionManager.shared.disconnect()
+                                        selectedServerUUID = server.id.uuidString
+                                        store.currentServerID = server.id
+                                    }
                                 }
                         } label: {
                             Image(systemName: server.id.uuidString == selectedServerUUID ? "externaldrive.badge.checkmark" : "externaldrive")

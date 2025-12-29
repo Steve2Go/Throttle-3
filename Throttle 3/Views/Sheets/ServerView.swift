@@ -54,6 +54,13 @@ struct ServerView: View {
                     
                         .keyboardType(.numberPad)
 #endif
+                    TextField("RPC Path", text: $server.rpcPath)
+                    #if os(iOS)
+                        .autocapitalization(.none)
+                    #endif
+                    Text("Default: /transmission/rpc")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Toggle("Uses SSL", isOn: $server.usesSSL)
                 TextField("Username", text: $server.user)
                     .textContentType(.username)

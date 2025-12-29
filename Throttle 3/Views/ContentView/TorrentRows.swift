@@ -34,7 +34,7 @@ struct TorrentRows: View {
     
     
     // Get the current server based on the store's currentServerID
-    private var currentServer: Servers? {
+    var currentServer: Servers? {
         guard let currentServerID = store.currentServerID else { return nil }
         return servers.first(where: { $0.id == currentServerID })
     }
@@ -267,6 +267,30 @@ struct TorrentRows: View {
                 await fetchTorrents()
             }
         }
+        .onChange(of: store.currentServerID) { oldID, newID in
+            print("🔄 Server switch detected: \(String(describing: oldID)) -> \(String(describing: newID))")
+            
+            // Clear all state when switching servers
+            torrents = []
+            visibleTorrentHashes.removeAll()
+            cancellables.removeAll()
+            
+            Task {
+                // Disconnect from old server
+                connectionManager.disconnect()
+                
+                // Wait for disconnect to complete
+                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+                
+                // Wait for currentServerID to clear
+                while connectionManager.currentServerID != nil {
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+                }
+                
+                print("✓ Disconnected from old server, fetching from new server...")
+                await fetchTorrents()
+            }
+        }
         .onChange(of: tailscaleManager.isConnected) { _, isConnected in
             if isConnected {
                 Task {
@@ -284,7 +308,21 @@ struct TorrentRows: View {
             return
         }
         
-        guard !isLoadingTorrents else { return }
+        // Ensure we're not fetching torrents for a different server
+        if let connectedServerID = connectionManager.currentServerID,
+           connectedServerID != server.id {
+            print("⚠️ Connection mismatch: Connected to \(connectedServerID) but trying to fetch for \(server.id)")
+            print("   Disconnecting and reconnecting to correct server...")
+            connectionManager.disconnect()
+            try? await Task.sleep(nanoseconds: 500_000_000)
+        }
+        
+        guard !isLoadingTorrents else {
+            print("⚠️ Already loading torrents, skipping duplicate fetch")
+            return
+        }
+        
+        print("📡 Fetching torrents for server: \(server.name) (ID: \(server.id))")
         
         isLoadingTorrents = true
         defer { isLoadingTorrents = false }
@@ -322,7 +360,7 @@ struct TorrentRows: View {
             port = Int(server.serverPort) ?? 9091
         }
         
-        let urlString = "\(scheme)://\(host):\(port)"
+        let urlString = "\(scheme)://\(host):\(port)\(server.rpcPath)"
         
         guard let url = URL(string: urlString) else {
             print("Invalid URL: \(urlString)")
