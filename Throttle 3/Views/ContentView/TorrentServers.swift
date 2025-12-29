@@ -19,7 +19,7 @@ struct ServerList: View {
     @State private var hasAppeared = false
     
     var body: some View {
-            HStack(spacing: 8) {
+            VStack(spacing: 10) {
                 ForEach(servers) { server in
                     HStack(spacing: 4) {
                         NavigationLink {
@@ -49,7 +49,7 @@ struct ServerList: View {
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
-                    }
+                    } 
                 }
             }
             .padding()

@@ -127,11 +127,10 @@ class TunnelManager: ObservableObject {
         // SshLib doesn't expose a stop function in the header we saw
         // May need to add that or track the process/connection
         
-        tunnels[id]?.isActive = false
-        tunnels[id]?.localPort = nil
-        tunnels[id]?.config = nil
+        // Completely remove the tunnel state to ensure clean reconnection
+        tunnels.removeValue(forKey: id)
         
-        print("✓ SSH tunnel [\(id)] stopped")
+        print("✓ SSH tunnel [\(id)] stopped and state cleared")
     }
     
     func stopAllTunnels() {
@@ -165,7 +164,12 @@ class TunnelManager: ObservableObject {
     
     /// Check if a tunnel's local port is listening (confirms tunnel is active)
     func checkTunnelConnectivity(id: String) async -> Bool {
-        guard let port = tunnels[id]?.localPort else { return false }
+        guard let port = tunnels[id]?.localPort else {
+            print("⚠️ No local port found for tunnel [\(id)]")
+            return false
+        }
+        
+        print("🔍 Checking connectivity for tunnel [\(id)] on port \(port)")
         
         // Try to connect to the local port
         let host = "127.0.0.1"

@@ -69,6 +69,10 @@ class ConnectionManager: ObservableObject {
         
         print("🔌 ConnectionManager: Starting connection for server '\(server.name)'")
         
+        // Clear all previous tunnel states to avoid port conflicts
+        tunnelManager.stopAllTunnels()
+        print("✓ Cleared previous tunnel states")
+        
         // Give SwiftUI time to render the connecting state
         try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         
@@ -280,11 +284,10 @@ class ConnectionManager: ObservableObject {
     
     /// Setup dufs server on remote machine
     private func setupDufsServer(server: Servers, downloadDir: String, port: Int) async throws {
-        print("📦 Setting up dufs server...")
+        print("📦 Setting up dufs server on port \(port)...")
         
-        // Step 1: Check if dufs is already running on this port
-        print("🔍 Checking if dufs is already running on port \(port)...")
-        let checkCommand = "(ss -tln | grep '127.0.0.1:\(port)' || lsof -i TCP:\(port) -sTCP:LISTEN) && pgrep -f 'dufs.*-p \(port)' > /dev/null && echo 'running' || echo 'not running'"
+        // Check if dufs is already running on this EXACT port (word boundary ensures exact match)
+        let checkCommand = "pgrep -f 'dufs.*-p \(port)\\b' >/dev/null && echo 'RUNNING' || echo 'NOT_RUNNING'"
         let checkOutput = try? await sshManager.executeCommand(
             server: server,
             command: checkCommand,
@@ -292,12 +295,10 @@ class ConnectionManager: ObservableObject {
             useTunnel: false
         )
         
-        if checkOutput?.contains("running") == true {
-            print("✓ dufs is already running on port \(port)")
+        if checkOutput?.trimmingCharacters(in: .whitespacesAndNewlines) == "RUNNING" {
+            print("✓ dufs already running on port \(port)")
             return
         }
-        
-        print("⚠️ dufs not running, checking if binary exists...")
         
         // Step 2: Check if dufs binary exists
         let dufsExistsCommand = "test -f ~/.throttle3/bin/dufs && echo 'exists' || echo 'not found'"
@@ -358,17 +359,7 @@ class ConnectionManager: ObservableObject {
             print("✓ dufs binary found, skipping installation")
         }
         
-        // Step 5: Kill any existing dufs on this port (in case it's stuck)
-        print("🔄 Ensuring clean start...")
-        let killCommand = "pkill -f 'dufs.*-p \(port)' || true"
-        _ = try? await sshManager.executeCommand(
-            server: server,
-            command: killCommand,
-            timeout: 5,
-            useTunnel: false
-        )
-        
-        // Step 6: Start dufs server
+        // Start dufs server
         let password = keychain["\(server.id.uuidString)-password"] ?? ""
         let dufsCommand = """
         nohup ~/.throttle3/bin/dufs '\(downloadDir)' \
@@ -386,10 +377,10 @@ class ConnectionManager: ObservableObject {
         )
         
         // Give dufs a moment to start
-        try await Task.sleep(nanoseconds: 1_000_000_000)
+        try await Task.sleep(nanoseconds: 1_500_000_000)
         
         // Verify it's running
-        let verifyCommand = "ss -tln | grep '127.0.0.1:\(port)' || lsof -i TCP:\(port) -sTCP:LISTEN || echo 'not running'"
+        let verifyCommand = "pgrep -f 'dufs.*-p \(port)\\b' >/dev/null && echo 'RUNNING' || echo 'NOT_RUNNING'"
         let verifyOutput = try await sshManager.executeCommand(
             server: server,
             command: verifyCommand,
@@ -397,11 +388,10 @@ class ConnectionManager: ObservableObject {
             useTunnel: false
         )
         
-        if verifyOutput.contains("not running") {
-            print("❌ dufs failed to start - check ~/.throttle3/dufs.log on remote server")
-        } else {
-            print("✓ dufs server running on port \(port)")
+        if verifyOutput.trimmingCharacters(in: .whitespacesAndNewlines) != "RUNNING" {
+            throw NSError(domain: "ConnectionManager", code: 2, userInfo: [NSLocalizedDescriptionKey: "dufs failed to start on port \(port)"])
         }
+        print("✓ dufs verified on port \(port)")
     }
     
     // MARK: - Public Getters

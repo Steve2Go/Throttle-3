@@ -18,6 +18,8 @@ struct ContentView: View {
     @ObservedObject private var tailscaleManager = TailscaleManager.shared
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var showTailscaleSheet = false
+    @State private var showAddServer = false
+    @State private var checkServers = 0
 
     var body: some View {
 
@@ -55,7 +57,7 @@ struct ContentView: View {
                         
                         Button(
                             action: {
-                                //edit Servers
+                                showAddServer = true
                             },
                             label: {
                                 Image(systemName: "externaldrive.badge.plus")
@@ -75,7 +77,7 @@ struct ContentView: View {
                     Text("Select a Server to start.")
                 }
             }
-        }
+        }.id(checkServers) // Force view refresh when checkServers changes
         .onAppear {
             columnVisibility = sidebarVisible ? .all : .detailOnly
             #if os(macOS)
@@ -95,6 +97,13 @@ struct ContentView: View {
         .sheet(isPresented: $showTailscaleSheet) {
             TailscaleToggle()
                 .presentationDetents([.height(150)])
+        }
+        .sheet(isPresented: $showAddServer) {
+            ServerView()
+            .onDisappear {
+                // Force re-check servers in case more servers
+                checkServers += 1
+            }
         }
     }
 }
