@@ -76,27 +76,8 @@ class TorrentThumbnailManager: ObservableObject {
             #endif
         }
         
-        // For non-media files, return asset icon based on file type
-        if let iconName = getFileTypeIcon(for: torrent) {
-            #if os(macOS)
-            if let image = NSImage(named: iconName) {
-                // Cache the asset icon
-                Task { @MainActor in
-                    self.thumbnails[hash] = image
-                }
-                return image
-            }
-            #else
-            if let image = UIImage(named: iconName) {
-                // Cache the asset icon
-                Task { @MainActor in
-                    self.thumbnails[hash] = image
-                }
-                return image
-            }
-            #endif
-        }
-        
+        // Don't return asset icons here - let generation attempt first
+        // Asset icons will only be used after generation determines it's non-media
         return nil
     }
     
