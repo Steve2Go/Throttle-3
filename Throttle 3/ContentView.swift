@@ -14,16 +14,15 @@ struct ContentView: View {
     @Query private var servers: [Servers]
     @AppStorage("selectedServerUUID") private var selectedServerUUID: String = ""
     @AppStorage("sidebarVisible") private var sidebarVisible: Bool = true
+    @EnvironmentObject var store: Store
 
     @ObservedObject private var tailscaleManager = TailscaleManager.shared
-    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    //@State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var showTailscaleSheet = false
-    @State private var showAddServer = false
-    @State private var checkServers = 0
 
     var body: some View {
 
-        NavigationSplitView(columnVisibility: $columnVisibility) {
+        NavigationSplitView {
             if servers.count == 0 {
                 #if os(macOS)
                     EmptyView()
@@ -36,7 +35,7 @@ struct ContentView: View {
                     Text("Servers")
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading)
-                    ServerList(columnVisibility: $columnVisibility)
+                    ServerList()
                     Text("Filters")
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading)
@@ -44,24 +43,38 @@ struct ContentView: View {
                 }
                 #if os(macOS)
                     .navigationSplitViewColumnWidth(min: 180, ideal: 200)
+                   
                 #else
                     //Ios only Settings nav
                     .toolbar {
+                       
+                            Button(action: {
+                                store.showTailscaleSheet = true
+                            }) {
+                                Image("custom.circle.grid.3x3")
+                                    .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive: tailscaleManager.isConnecting)
+                                    .symbolRenderingMode(.hierarchical)
+                                    .foregroundStyle(.primary, .secondary)
+                            }
                         
-                        Button(action: {
-                            showTailscaleSheet = true
-                        }) {
-                            Image(systemName: tailscaleManager.isConnecting ? "circle.grid.3x3" : "circle.grid.3x3.fill")
-                                .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive: tailscaleManager.isConnecting)
-                        }
                         
                         Button(
                             action: {
-                                showAddServer = true
+                                store.showAddServer = true
                             },
                             label: {
                                 Image(systemName: "externaldrive.badge.plus")
                             })
+                            .buttonStyle(.plain)
+
+                           Button(
+                            action: {
+                                store.showAddServer = true
+                            },
+                            label: {
+                                Image(systemName: "gearshape")
+                            })
+                            .buttonStyle(.plain)
                        
                     }
                 #endif
@@ -77,9 +90,9 @@ struct ContentView: View {
                     Text("Select a Server to start.")
                 }
             }
-        }.id(checkServers) // Force view refresh when checkServers changes
+        }
         .onAppear {
-            columnVisibility = sidebarVisible ? .all : .detailOnly
+           
             #if os(macOS)
             // Ensure Tailscale monitoring is active when window appears
             tailscaleManager.ensureMonitoring()
@@ -91,19 +104,26 @@ struct ContentView: View {
             tailscaleManager.ensureMonitoring()
         }
         #endif
-        .onChange(of: columnVisibility) { _, newValue in
-            sidebarVisible = (newValue == .all)
-        }
-        .sheet(isPresented: $showTailscaleSheet) {
-            TailscaleToggle()
-                .presentationDetents([.height(150)])
-        }
-        .sheet(isPresented: $showAddServer) {
-            ServerView()
-            .onDisappear {
-                // Force re-check servers in case more servers
-                checkServers += 1
+        .sheet(isPresented: $store.showTailscaleSheet) {
+            NavigationStack {
+                TailscaleToggle()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") {
+                                store.showTailscaleSheet = false
+                            }
+                        }
+                    }
+                #if os(iOS)
+                    .presentationDetents([.height(200)])
+                #else
+                    .frame(idealWidth: NSApp.keyWindow?.contentView?.bounds.width ?? 500, idealHeight: 100)
+                #endif
             }
+        }
+        
+        .sheet(isPresented: $store.showAddServer) {
+            ServerView()
         }
     }
 }

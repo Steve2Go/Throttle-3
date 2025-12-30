@@ -18,4 +18,6 @@ class Store: NSObject, ObservableObject {
     @Published var currentServerID: UUID?
     @Published var sharedUrl: String?
     @Published var didLoad: Bool = false
+    @Published var showTailscaleSheet: Bool = false
+    @Published var showAddServer: Bool = false
 }

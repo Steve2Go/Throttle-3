@@ -99,6 +99,20 @@ struct Throttle_3App: App {
                 }
         }
         .modelContainer(sharedModelContainer)
+                #if os(macOS)
+ .commands {
+                        CommandGroup(replacing: .appSettings) {
+                        Button("Tailscale") {
+                            store.showTailscaleSheet = true
+                        }
+                        
+                        Button("New Server..."){
+                                store.showAddServer = true
+                            }
+                          
+                    }
+                    }
+        #endif
     }
     
     private func observeCloudKitActivity() {

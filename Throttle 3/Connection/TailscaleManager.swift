@@ -18,11 +18,7 @@ import TailscaleKit
 class TailscaleManager: ObservableObject {
     static let shared = TailscaleManager()
     
-    @Published var isConnected: Bool = false {
-        didSet {
-            print("🔵 TailscaleManager.isConnected changed: \(oldValue) -> \(isConnected)")
-        }
-    }
+    @Published var isConnected: Bool = false 
     @Published var isConnecting: Bool = false
     @Published var errorMessage: String?
     @Published var authURL: URL?
@@ -42,56 +38,72 @@ class TailscaleManager: ObservableObject {
     // MARK: - Connection Management
     
     func connect() async {
-        guard !isConnecting else { return }
+        // Don't proceed if already connected or connecting
+        guard !isConnected && !isConnecting else {
+            print("⚠️ Tailscale already \(isConnected ? "connected" : "connecting")")
+            return
+        }
         
         isConnecting = true
         errorMessage = nil
         
         do {
-            // Setup data directory
-            let dataDir = FileManager.default
-                .urls(for: .documentDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("tailscale")
+            // If we don't have a node yet, create one
+            if node == nil {
+                // Setup data directory
+                let dataDir = FileManager.default
+                    .urls(for: .documentDirectory, in: .userDomainMask)[0]
+                    .appendingPathComponent("tailscale")
+                
+                try FileManager.default.createDirectory(at: dataDir, withIntermediateDirectories: true)
+                
+                // Get device name for hostname
+                #if os(iOS)
+                let deviceName = UIDevice.current.name
+                #else
+                let deviceName = Host.current().localizedName ?? "Mac"
+                #endif
+                let hostname = "Throttle-\(deviceName.replacingOccurrences(of: " ", with: "-"))"
+                
+                // Don't pass stored auth - Tailscale persists auth in its state files
+                // If user needs to re-auth, they'll get the Safari flow
+                let config = Configuration(
+                    hostName: hostname,
+                    path: dataDir.path,
+                    authKey: nil,
+                    controlURL: kDefaultControlURL,
+                    ephemeral: true
+                )
+                
+                // Create node
+                let node = try TailscaleNode(config: config, logger: SimpleLogger())
+                self.node = node
+                
+                // Set up LocalAPI client
+                let apiClient = LocalAPIClient(localNode: node, logger: SimpleLogger())
+                self.localAPIClient = apiClient
+                
+                // Set up IPN bus watcher BEFORE calling node.up()
+                let consumer = TailscaleMessageConsumer(manager: self)
+                let processor = try await apiClient.watchIPNBus(
+                    mask: [.initialState, .prefs],
+                    consumer: consumer
+                )
+                self.messageProcessor = processor
+            }
             
-            try FileManager.default.createDirectory(at: dataDir, withIntermediateDirectories: true)
+            // Bring the node up (reuses existing auth if available)
+            guard let node = node else {
+                throw NSError(domain: "TailscaleManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Node not initialized"])
+            }
             
-            // Get device name for hostname
-            #if os(iOS)
-            let deviceName = UIDevice.current.name
-            #else
-            let deviceName = Host.current().localizedName ?? "Mac"
-            #endif
-            let hostname = "Throttle-\(deviceName.replacingOccurrences(of: " ", with: "-"))"
-            
-            // Don't pass stored auth - Tailscale persists auth in its state files
-            // If user needs to re-auth, they'll get the Safari flow
-            let config = Configuration(
-                hostName: hostname,
-                path: dataDir.path,
-                authKey: nil,
-                controlURL: kDefaultControlURL,
-                ephemeral: true
-            )
-            
-            // Create node
-            let node = try TailscaleNode(config: config, logger: SimpleLogger())
-            self.node = node
-            
-            // Set up LocalAPI client
-            let apiClient = LocalAPIClient(localNode: node, logger: SimpleLogger())
-            self.localAPIClient = apiClient
-            
-            // Set up IPN bus watcher BEFORE calling node.up()
-            let consumer = TailscaleMessageConsumer(manager: self)
-            let processor = try await apiClient.watchIPNBus(
-                mask: [.initialState, .prefs],
-                consumer: consumer
-            )
-            self.messageProcessor = processor
-            
-            // Bring the node up - this will trigger auth flow if needed
             try await node.up()
             proxyConfig = try await node.loopback()
+            
+            // Check the actual status after bringing node up
+            // This ensures state is correct if message consumer doesn't fire
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second
+            await checkConnectionStatus()
             
         } catch {
             isConnecting = false
@@ -101,12 +113,25 @@ class TailscaleManager: ObservableObject {
     }
     
     func disconnect() async {
+        // Don't actually bring the node down - just update our state
+        // This allows instant reconnection since the node stays ready
+        isConnected = false
+        isConnecting = false
+        
+        // Dismiss Safari if open
+        dismissSafariViewController()
+        
+        print("✓ Tailscale disconnected (node kept ready for fast reconnect)")
+    }
+
+    func clear() async {
         guard let node = node else { return }
         
         do {
+            // Bring node down
             try await node.down()
             
-            // Clean up
+            // Clean up all state
             messageProcessor?.cancel()
             messageProcessor = nil
             localAPIClient = nil
@@ -116,13 +141,22 @@ class TailscaleManager: ObservableObject {
             isConnecting = false
             authURL = nil
             
+            // Clear auth from UserDefaults
+            UserDefaults.standard.removeObject(forKey: "TailscaleAuth")
+            
             // Dismiss Safari if open
             dismissSafariViewController()
             
+            // Delete Tailscale state directory to force re-auth
+            let dataDir = FileManager.default
+                .urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("tailscale")
+            try? FileManager.default.removeItem(at: dataDir)
+            
             print("✓ Tailscale disconnected and auth cleared")
         } catch {
-            errorMessage = "Failed to disconnect: \(error.localizedDescription)"
-            print("❌ Tailscale disconnect failed: \(error)")
+            errorMessage = "Failed to clear: \(error.localizedDescription)"
+            print("❌ Tailscale clear failed: \(error)")
         }
     }
     
@@ -400,6 +434,8 @@ class TailscaleManager: ObservableObject {
         
         print("✓ Tailscale disconnected")
     }
+
+
     
     // MARK: - Status Checking
     

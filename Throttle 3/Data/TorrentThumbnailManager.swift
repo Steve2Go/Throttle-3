@@ -11,6 +11,7 @@ import Transmission
 import CryptoKit
 import Combine
 import KeychainAccess
+import TailscaleKit
 
 #if os(macOS)
 import AppKit
@@ -406,7 +407,7 @@ class TorrentThumbnailManager: ObservableObject {
             port = (Int(server.serverPort) ?? 80) + 8000
         } else if server.useTailscale {
             host = server.serverAddress
-            port = Int(server.reverseProxyPort) ?? (Int(server.serverPort) ?? 9091)
+            port = Int(server.serverPort) ?? 9091
         } else {
             host = server.serverAddress
             port = Int(server.serverPort) ?? 9091
@@ -419,7 +420,25 @@ class TorrentThumbnailManager: ObservableObject {
         }
         
         let password = keychain["\(server.id.uuidString)-password"] ?? ""
+        
+        // Create Transmission client with SOCKS5 proxy support on iOS with Tailscale
+        #if os(iOS)
+        if server.useTailscale, let node = TailscaleManager.shared.node {
+            do {
+                let config = URLSessionConfiguration.default
+                let _ = try await config.proxyVia(node)
+                let customSession = URLSession(configuration: config)
+                return Transmission(baseURL: url, username: server.user, password: password, session: customSession)
+            } catch {
+                print("⚠️ Failed to configure Tailscale proxy: \(error), using default session")
+                return Transmission(baseURL: url, username: server.user, password: password)
+            }
+        } else {
+            return Transmission(baseURL: url, username: server.user, password: password)
+        }
+        #else
         return Transmission(baseURL: url, username: server.user, password: password)
+        #endif
     }
     
     /// Escape shell arguments to prevent injection

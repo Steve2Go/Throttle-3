@@ -10,10 +10,11 @@ import SwiftData
 import Transmission
 import KeychainAccess
 import Combine
+import TailscaleKit
 
 struct TorrentRows: View {
-    let isSidebarVisible: Bool
-    @Binding var columnVisibility: NavigationSplitViewVisibility
+    //let isSidebarVisible: Bool
+    //@Binding var columnVisibility: NavigationSplitViewVisibility
     
     @Environment(\.horizontalSizeClass) var sizeClass
     @Environment(\.dismiss) private var dismiss
@@ -42,10 +43,14 @@ struct TorrentRows: View {
     var body: some View {
         Group {
             if tailscaleManager.isConnecting {
-                ContentUnavailableView {
-                    Label("Connecting Tailscale", systemImage: "circle.grid.3x3")
-                        .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
-                }
+                ContentUnavailableView (
+                    "Connecting Tailscale",
+                    image : "custom.circle.grid.3x3"
+                        
+            )
+                .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(.primary, .secondary)
             }
             else if (currentServer != nil) && (connectionManager.isConnecting || ((currentServer!.tunnelWebOverSSH || currentServer!.tunnelFilesOverSSH)) && !connectionManager.isConnected && ((currentServer?.useTailscale) != false && tailscaleManager.isConnected) || ((currentServer?.useTailscale) == false)) {
                 ContentUnavailableView {
@@ -194,7 +199,7 @@ struct TorrentRows: View {
                 
                 
                 Button(action: {}) {
-                    Image(systemName: "internaldrive")
+                    Image(systemName: "externaldrive.badge.icloud")
                 }
             }
             #if os(iOS)
@@ -203,16 +208,12 @@ struct TorrentRows: View {
                 Button(action: {
                     dismiss()
                 }) {
-                    Image(systemName: "externaldrive.badge.person.crop")
+                    Image("custom.externaldrive.badge.ellipsis")
                 }
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
-                    Button(action: {
-                        // Settings action
-                    }) {
-                        Label("Settings", systemImage: "gearshape")
-                    }
+                    
                     
                     Button(action: {
                         // Create action
@@ -231,41 +232,39 @@ struct TorrentRows: View {
             
         }
             #else
-            if !isSidebarVisible {
-                ToolbarItem {
-                    Button(action: {
-                        showServerList = true
-                    }) {
-                        Image(systemName: "externaldrive.badge.person.crop")
-                    }
-                }
-                
-                //TODO - Make a filters & servers dropdown
-                
-            }
+//            if !isSidebarVisible {
+//                ToolbarItem {
+//                    Button(action: {
+//                        showServerList = true
+//                    }) {
+//                        Image(systemName: "externaldrive.badge.person.crop")
+//                    }
+//                }
+//                
+//                //TODO - Make a filters & servers dropdown
+//                
+//            }
             #endif
             
             
             
         }
+        .navigationTitle(currentServer?.name ?? "")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
         .navigationBarBackButtonHidden(true)
-        .sheet(isPresented: $showServerList) {
-            NavigationStack {
-                ServerList(columnVisibility: $columnVisibility)
-                    .navigationTitle("Servers")
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Done") {
-                                showServerList = false
-                            }
-                        }
-                    }
-            }
-        }
         .onAppear {
+            if tailscaleManager.isConnected || (currentServer?.useTailscale == false) {
             Task {
                 await fetchTorrents()
             }
+            } else if currentServer?.useTailscale == true && !tailscaleManager.isConnecting {
+                    Task {
+                        await tailscaleManager.connect()
+                    }
+                }
+            
         }
         .onChange(of: store.currentServerID) { oldID, newID in
             print("🔄 Server switch detected: \(String(describing: oldID)) -> \(String(describing: newID))")
@@ -288,7 +287,10 @@ struct TorrentRows: View {
                 }
                 
                 print("✓ Disconnected from old server, fetching from new server...")
-                await fetchTorrents()
+                if tailscaleManager.isConnected || (currentServer?.useTailscale == false) {
+                    await fetchTorrents()
+                }
+                
             }
         }
         .onChange(of: tailscaleManager.isConnected) { _, isConnected in
@@ -373,8 +375,24 @@ struct TorrentRows: View {
         print("Connecting to Transmission at: \(urlString)")
         
         // Create Transmission client
-        let client = Transmission(baseURL: url, username: server.user, password: password)
-        
+//        #if os(iOS)
+//        var client: Transmission?
+//        if server.useTailscale && !server.tunnelWebOverSSH && (tailscaleManager.node != nil){
+//            do {
+//                let (sessionConfig, _) = try await URLSessionConfiguration.tailscaleSession(tailscaleManager.node!)
+//                let session = URLSession(configuration: sessionConfig)
+//                client = Transmission(baseURL: url, username: server.user, password: password, session: session)
+//            } catch {
+//                
+//            }
+////        } else {
+//            client = Transmission(baseURL: url, username: server.user, password: password, )
+////        }
+//
+//        #else
+        let client = Transmission(baseURL: url, username: server.user, password: password, )
+//        #endif
+
         // Use Combine to async/await bridge
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             client.request(.torrents(properties: Torrent.PropertyKeys.allCases))

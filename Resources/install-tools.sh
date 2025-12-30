@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-# Throttle 3 - Install dufs and ffmpeg
+# Throttle 3 - Install ffmpeg
 # This script detects the OS and architecture, then downloads
-# dufs and ffmpeg binaries to ~/.throttle3/bin/
+# ffmpeg binaries to ~/.throttle3/bin/
 
 INSTALL_DIR="$HOME/.throttle3/bin"
 TEMP_DIR="/tmp/throttle3-install-$$"
@@ -69,109 +69,6 @@ setup_directories() {
     echo_info "Creating installation directory: $INSTALL_DIR"
     mkdir -p "$INSTALL_DIR"
     mkdir -p "$TEMP_DIR"
-}
-
-# Install dufs
-install_dufs() {
-    local os=$1
-    local arch=$2
-    
-    echo_info "Installing dufs for $os-$arch..."
-    
-    # Map to dufs release naming (e.g., x86_64-unknown-linux-musl, aarch64-apple-darwin)
-    local dufs_target=""
-    
-    case "$os-$arch" in
-        linux-x86_64)
-            dufs_target="x86_64-unknown-linux-musl"
-            ;;
-        linux-aarch64)
-            dufs_target="aarch64-unknown-linux-musl"
-            ;;
-        linux-armv7)
-            dufs_target="armv7-unknown-linux-musleabihf"
-            ;;
-        linux-armv6)
-            dufs_target="arm-unknown-linux-musleabihf"
-            ;;
-        macos-x86_64)
-            dufs_target="x86_64-apple-darwin"
-            ;;
-        macos-aarch64)
-            dufs_target="aarch64-apple-darwin"
-            ;;
-        *)
-            echo_error "Unsupported OS/architecture combination for dufs: $os-$arch"
-            return 1
-            ;;
-    esac
-    
-    # Use exact URLs from GitHub releases
-    local download_url=""
-    local dufs_filename=""
-    
-    case "$dufs_target" in
-        x86_64-unknown-linux-musl)
-            download_url="https://github.com/sigoden/dufs/releases/download/v0.45.0/dufs-v0.45.0-x86_64-unknown-linux-musl.tar.gz"
-            dufs_filename="dufs-v0.45.0-x86_64-unknown-linux-musl.tar.gz"
-            ;;
-        aarch64-apple-darwin)
-            download_url="https://github.com/sigoden/dufs/releases/download/v0.45.0/dufs-v0.45.0-aarch64-apple-darwin.tar.gz"
-            dufs_filename="dufs-v0.45.0-aarch64-apple-darwin.tar.gz"
-            ;;
-        aarch64-unknown-linux-musl)
-            download_url="https://github.com/sigoden/dufs/releases/download/v0.45.0/dufs-v0.45.0-aarch64-unknown-linux-musl.tar.gz"
-            dufs_filename="dufs-v0.45.0-aarch64-unknown-linux-musl.tar.gz"
-            ;;
-        armv7-unknown-linux-musleabihf)
-            download_url="https://github.com/sigoden/dufs/releases/download/v0.45.0/dufs-v0.45.0-armv7-unknown-linux-musleabihf.tar.gz"
-            dufs_filename="dufs-v0.45.0-armv7-unknown-linux-musleabihf.tar.gz"
-            ;;
-        arm-unknown-linux-musleabihf)
-            download_url="https://github.com/sigoden/dufs/releases/download/v0.45.0/dufs-v0.45.0-arm-unknown-linux-musleabihf.tar.gz"
-            dufs_filename="dufs-v0.45.0-arm-unknown-linux-musleabihf.tar.gz"
-            ;;
-        x86_64-apple-darwin)
-            download_url="https://github.com/sigoden/dufs/releases/download/v0.45.0/dufs-v0.45.0-x86_64-apple-darwin.tar.gz"
-            dufs_filename="dufs-v0.45.0-x86_64-apple-darwin.tar.gz"
-            ;;
-        *)
-            echo_error "No URL mapped for target: $dufs_target"
-            return 1
-            ;;
-    esac
-    
-    echo_info "Using URL: $download_url"
-    
-    cd "$TEMP_DIR"
-    
-    # Download the file
-    if download_file "$download_url" "$dufs_filename"; then
-        # Verify we got a real file
-        if [ ! -s "$dufs_filename" ]; then
-            echo_error "Downloaded file is empty"
-            return 1
-        fi
-        
-        local filesize=$(stat -f%z "$dufs_filename" 2>/dev/null || stat -c%s "$dufs_filename" 2>/dev/null)
-        echo_info "Downloaded $filesize bytes"
-        
-        echo_info "Extracting dufs..."
-        tar -xzf "$dufs_filename"
-        
-        # Find the dufs binary and move it
-        if [ -f "dufs" ]; then
-            mv dufs "$INSTALL_DIR/dufs"
-            chmod +x "$INSTALL_DIR/dufs"
-            echo_info "dufs installed successfully to $INSTALL_DIR/dufs"
-        else
-            echo_error "dufs binary not found in archive"
-            return 1
-        fi
-    else
-        echo_error "Failed to download dufs"
-        return 1
-    fi
 }
 
 # Install ffmpeg
@@ -303,8 +200,7 @@ main() {
     
     setup_directories
     
-    # Install tools
-    install_dufs "$os" "$arch"
+    # Install ffmpeg
     install_ffmpeg "$os" "$arch"
     
     cleanup
@@ -315,7 +211,6 @@ main() {
     echo_info "Binaries installed to: $INSTALL_DIR"
     echo_info ""
     echo_info "Installed tools:"
-    [ -f "$INSTALL_DIR/dufs" ] && echo_info "  - dufs: $INSTALL_DIR/dufs"
     [ -f "$INSTALL_DIR/ffmpeg" ] && echo_info "  - ffmpeg: $INSTALL_DIR/ffmpeg"
     [ -f "$INSTALL_DIR/ffprobe" ] && echo_info "  - ffprobe: $INSTALL_DIR/ffprobe"
     echo_info "========================================"

@@ -19,6 +19,7 @@ struct TailscaleToggle: View {
     var body: some View {
         List {
             Section("Tailscale") {
+                HStack {
                 Toggle(label, isOn: Binding(
                     get: { tailscaleEnabled },
                     set: { enabled in
@@ -33,6 +34,14 @@ struct TailscaleToggle: View {
                     }
                 ))
                 .disabled(manager.isConnecting)
+                #if os(iOS)
+                Button("Clear") {
+                    Task{
+                        await manager.clear()
+                    }
+                }
+                #endif
+            }
                 
                 if manager.isConnecting {
                     HStack {

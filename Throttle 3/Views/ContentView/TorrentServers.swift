@@ -15,35 +15,49 @@ struct ServerList: View {
     @State private var navigationTrigger: UUID?
     @State private var editingServer: Servers?
     @EnvironmentObject var store: Store
-    @Binding var columnVisibility: NavigationSplitViewVisibility
+    //@Binding var columnVisibility: NavigationSplitViewVisibility
     @State private var hasAppeared = false
     
     var body: some View {
             VStack(spacing: 10) {
                 ForEach(servers) { server in
                     HStack(spacing: 4) {
-                        NavigationLink {
-                            TorrentRows(isSidebarVisible: columnVisibility == .all, columnVisibility: $columnVisibility)
-                                .navigationTitle(server.name)
-                                .onAppear {
-                                    // Only update if switching to a different server
-                                    if selectedServerUUID != server.id.uuidString {
-                                        print("🔄 Switching server from \(selectedServerUUID) to \(server.id.uuidString)")
-                                        // Disconnect from old server before switching
-                                        ConnectionManager.shared.disconnect()
-                                        selectedServerUUID = server.id.uuidString
-                                        store.currentServerID = server.id
-                                    }
-                                }
+                        Button {
+                            // Handle server switch
+                            #if os(iOS)
+                            // On iOS, always navigate even if already selected
+                            if selectedServerUUID != server.id.uuidString {
+                                print("🔄 Switching server from \(selectedServerUUID) to \(server.id.uuidString)")
+                                ConnectionManager.shared.disconnect()
+                                selectedServerUUID = server.id.uuidString
+                                store.currentServerID = server.id
+                            }
+                            navigationTrigger = server.id
+                            #else
+                            // On macOS, only navigate if switching to a different server
+                            if selectedServerUUID != server.id.uuidString {
+                                print("🔄 Switching server from \(selectedServerUUID) to \(server.id.uuidString)")
+                                ConnectionManager.shared.disconnect()
+                                selectedServerUUID = server.id.uuidString
+                                store.currentServerID = server.id
+                                navigationTrigger = server.id
+                            }
+                            #endif
                         } label: {
-                            Image(systemName: server.id.uuidString == selectedServerUUID ? "externaldrive.badge.checkmark" : "externaldrive")
-                                .padding(.leading, 6)
-                                .symbolRenderingMode(.palette)
-                                .foregroundStyle(server.id.uuidString == selectedServerUUID ?.green : .primary,.primary)
-                        
-                            Text(server.name)
-                                .padding(.leading, 0)
-                                .foregroundColor(.primary)
+                            HStack(spacing: 4) {
+                                Image(systemName: server.id.uuidString == selectedServerUUID ? "externaldrive.badge.checkmark" : "externaldrive")
+                                    .padding(.leading, 6)
+                                    .symbolRenderingMode(.palette)
+                                    .foregroundStyle(server.id.uuidString == selectedServerUUID ?.green : .primary,.primary)
+                            
+                                Text(server.name)
+#if os(IOS)
+                                    .font(.title3)
+                                #endif
+                                    .padding(.leading, 0)
+                                    .foregroundColor(.primary)
+                                Spacer()
+                            }
                         }
                         .buttonStyle(.plain)
                         
@@ -56,7 +70,11 @@ struct ServerList: View {
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
-                    } 
+                    }
+                    #if os(iOS)
+                    .padding(.vertical, 5)
+                    #endif
+                    
                 }
             }
             .padding()
@@ -99,7 +117,8 @@ struct ServerList: View {
                     if let uuid = navigationTrigger,
                        let server = servers.first(where: { $0.id == uuid }) {
                         NavigationLink(
-                            destination: TorrentRows(isSidebarVisible: columnVisibility == .all, columnVisibility: $columnVisibility),
+                            destination: TorrentRows()
+                                .navigationTitle(server.name),
                             tag: uuid,
                             selection: $navigationTrigger,
                             label: { EmptyView() }

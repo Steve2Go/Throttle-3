@@ -10,12 +10,11 @@ import SwiftUI
 import Combine
 import KeychainAccess
 import Transmission
+import TailscaleKit
 
 //1 - Tailscale if set, or tunnel()
 
-//2 Tunnels up - Http if set, plus one for the sftp, and one for the file server.
-
-//traverse using ssh exec and install / start dufs if needed
+//2 Tunnels up - Http if set, plus one for SFTP
 
 //3 Start queue
 
@@ -74,20 +73,18 @@ class ConnectionManager: ObservableObject {
         tunnelManager.stopAllTunnels()
         print("✓ Cleared previous tunnel states")
         
+        
         // Give SwiftUI time to render the connecting state
         try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         
-        // Start both tunnels concurrently - they run on background threads
-        async let webTunnelResult: Void = server.tunnelWebOverSSH ? startWebTunnel(server: server) : ()
-        async let fileServerResult: Void = server.serveFilesOverTunnels ? startFileServerTunnel(server: server) : ()
+        // Start web tunnel if needed
+       
+        await startWebTunnel(server: server)
         
-        // Wait for both to be initiated (not connected yet)
-        _ = await (webTunnelResult, fileServerResult)
         
         // Monitor tunnel states by checking port connectivity
         var expectedTunnels: [String] = []
-        if server.tunnelWebOverSSH { expectedTunnels.append("web") }
-        if server.serveFilesOverTunnels { expectedTunnels.append("fileserver") }
+        expectedTunnels.append("web") // Always expect web tunnel
         
         // Wait for tunnels to become active (check port connectivity)
         var attempts = 0
@@ -136,6 +133,13 @@ class ConnectionManager: ObservableObject {
     // MARK: - Private Methods
     
     private func startWebTunnel(server: Servers) async {
+        // Check and install ffmpeg if needed (before starting tunnel)
+        if !server.ffmpegInstalled {
+            await checkAndInstallFfmpeg(server: server)
+        } else{
+            print("✓ ffmpeg already installed, skipping check")
+        }
+        
         let credentials = loadCredentials(for: server)
         
         // Use port + 8000 for local web tunnel (e.g., 80 -> 8080, 9091 -> 17091)
@@ -159,251 +163,83 @@ class ConnectionManager: ObservableObject {
         }
     }
     
-    private func startFileServerTunnel(server: Servers) async {
-        print("🔧 Starting file server tunnel...")
-        
-        let credentials = loadCredentials(for: server)
-        let remoteFileServerPort = (Int(server.serverPort) ?? 80) + 10000
-        
-        // Step 1: Wait for web tunnel if needed, then get Transmission download directory
-        var downloadDir: String?
-        
-        if server.tunnelWebOverSSH {
-            // Wait for web tunnel port to be listening
-            print("⏳ Waiting for web tunnel to be ready...")
-            var attempts = 0
-            while attempts < 20 {
-                if await tunnelManager.checkTunnelConnectivity(id: "web") {
-                    print("✓ Web tunnel is ready")
-                    break
-                }
-                try? await Task.sleep(nanoseconds: 500_000_000)
-                attempts += 1
-            }
-            
-            if attempts >= 20 {
-                print("⚠️ Web tunnel timeout, proceeding anyway...")
-            }
-        }
-        
-        // Get download directory from Transmission
-        downloadDir = await getTransmissionDownloadDir(server: server)
-        
-        if downloadDir == nil {
-            print("⚠️ Could not get Transmission download directory, using default ~/Downloads")
-            downloadDir = "~/Downloads"
-        } else {
-            print("✓ Transmission download directory: \(downloadDir!)")
-        }
-        
-        // Step 2: Setup dufs on remote server
-        do {
-            try await setupDufsServer(server: server, downloadDir: downloadDir!, port: remoteFileServerPort)
-        } catch {
-            print("❌ Failed to setup dufs server: \(error)")
-        }
-        
-        // Step 3: Start SSH tunnel for file server
-        let localFileServerPort = (Int(server.serverPort) ?? 80) + 18000
-        
-        let config = SSHTunnelConfig(
-            sshHost: server.sshHost.isEmpty ? server.serverAddress : server.sshHost,
-            sshPort: Int(server.sshPort) ?? 22,
-            remoteAddress: "127.0.0.1:\(remoteFileServerPort)",
-            localAddress: "127.0.0.1:\(localFileServerPort)",
-            credentials: credentials,
-            useTailscale: server.useTailscale
-        )
-        
-        await tunnelManager.startTunnel(id: "fileserver", config: config)
-        
-        if let state = tunnelManager.getTunnelState(id: "fileserver"), state.isActive {
-            print("✓ File server tunnel connected on port \(state.localPort ?? 0)")
-        } else if let state = tunnelManager.getTunnelState(id: "fileserver"), let error = state.errorMessage {
-            print("❌ File server tunnel failed: \(error)")
-        }
-    }
+    // MARK: - FFmpeg Installation
     
-    // MARK: - File Server Setup
-    
-    /// Get Transmission download directory from session
-    private func getTransmissionDownloadDir(server: Servers) async -> String? {
-        // Build Transmission URL
-        let scheme = server.usesSSL ? "https" : "http"
-        var host: String
-        var port: Int
+    private func checkAndInstallFfmpeg(server: Servers) async {
+        print("🔍 Checking for ffmpeg installation...")
         
-        if server.tunnelWebOverSSH {
-            host = "127.0.0.1"
-            port = (Int(server.serverPort) ?? 80) + 8000
-        } else if server.useTailscale {
-            host = server.serverAddress
-            port = Int(server.reverseProxyPort) ?? (Int(server.serverPort) ?? 9091)
-        } else {
-            host = server.serverAddress
-            port = Int(server.serverPort) ?? 9091
-        }
-        
-        let urlString = "\(scheme)://\(host):\(port)\(server.rpcPath)"
-        guard let url = URL(string: urlString) else {
-            print("❌ Invalid Transmission URL: \(urlString)")
-            return nil
-        }
-        
-        let password = keychain["\(server.id.uuidString)-password"] ?? ""
-        let client = Transmission(baseURL: url, username: server.user, password: password)
-        
-        // Create custom request for session-get to get download-dir
-        let sessionRequest = Request<String>(
-            method: "session-get",
-            args: ["fields": ["download-dir"]],
-            transform: { response -> Result<String, TransmissionError> in
-                guard let arguments = response["arguments"] as? [String: Any],
-                      let downloadDir = arguments["download-dir"] as? String
-                else {
-                    return .failure(.unexpectedResponse)
-                }
-                return .success(downloadDir)
-            }
-        )
-        
-        return await withCheckedContinuation { continuation in
-            client.request(sessionRequest)
-                .receive(on: DispatchQueue.main)
-                .sink(
-                    receiveCompletion: { completion in
-                        if case let .failure(error) = completion {
-                            print("❌ Failed to get Transmission session: \(error)")
-                            continuation.resume(returning: nil)
-                        }
-                    },
-                    receiveValue: { downloadDir in
-                        continuation.resume(returning: downloadDir)
-                    }
-                )
-                .store(in: &cancellables)
-        }
-    }
-    
-    /// Setup dufs server on remote machine
-    private func setupDufsServer(server: Servers, downloadDir: String, port: Int) async throws {
-        print("📦 Setting up dufs server on port \(port)...")
-        
-        // Check if dufs is already running on this EXACT port (word boundary ensures exact match)
-        let checkCommand = "pgrep -f 'dufs.*-p \(port)\\b' >/dev/null && echo 'RUNNING' || echo 'NOT_RUNNING'"
-        let checkOutput = try? await sshManager.executeCommand(
+        // Check if ffmpeg exists
+        let checkCommand = "test -f ~/.throttle3/bin/ffmpeg && echo 'exists' || echo 'not found'"
+        let ffmpegExists = try? await sshManager.executeCommand(
             server: server,
             command: checkCommand,
             timeout: 5,
             useTunnel: false
         )
         
-        if checkOutput?.trimmingCharacters(in: .whitespacesAndNewlines) == "RUNNING" {
-            print("✓ dufs already running on port \(port)")
-            return
-        }
-        
-        // Step 2: Check if dufs binary exists
-        let dufsExistsCommand = "test -f ~/.throttle3/bin/dufs && echo 'exists' || echo 'not found'"
-        let dufsExists = try? await sshManager.executeCommand(
-            server: server,
-            command: dufsExistsCommand,
-            timeout: 5,
-            useTunnel: false
-        )
-        
-        if dufsExists?.contains("not found") == true {
-            print("📥 dufs not installed, running installation...")
+        if ffmpegExists?.contains("not found") == true {
+            print("📥 ffmpeg not installed, downloading...")
             
-            // Step 3: Upload install script - try multiple paths
-            // Step 3: Upload install script - try multiple paths
-        var scriptURL = Bundle.main.url(forResource: "install-tools", withExtension: "sh", subdirectory: "Resources")
-        if scriptURL == nil {
-            scriptURL = Bundle.main.url(forResource: "install-tools", withExtension: "sh")
-        }
-        
-        guard let scriptURL = scriptURL else {
-            throw NSError(domain: "ConnectionManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "install-tools.sh not found in bundle"])
-        }
-        
-        print("📄 Found script at: \(scriptURL.path)")
-        
-        let tempScriptPath = NSTemporaryDirectory() + "install-tools.sh"
-        let tempScriptURL = URL(fileURLWithPath: tempScriptPath)
-        
-        // Remove existing temp file if it exists
-        try? FileManager.default.removeItem(at: tempScriptURL)
-        
-        // Copy script to temp location
-        try FileManager.default.copyItem(at: scriptURL, to: tempScriptURL)
-        
-        print("📤 Uploading install script...")
-        try await sftpManager.uploadFile(
-            server: server,
-            localPath: tempScriptPath,
-            remotePath: ".throttle3/install-tools.sh",
-            useTunnel: false
-        )
-        
-        // Clean up temp file
-        try? FileManager.default.removeItem(atPath: tempScriptPath)
-        
-        // Step 4: Make script executable and run it
-        print("🔧 Installing dufs and ffmpeg...")
-        _ = try await sshManager.executeCommand(
-            server: server,
-            command: "chmod +x ~/.throttle3/install-tools.sh && bash ~/.throttle3/install-tools.sh",
-            timeout: 180,
-            useTunnel: false
-        )
-        
-        print("✓ Tools installed")
+            // Install command that detects OS/arch and downloads ffmpeg
+            let installCommand = """
+            mkdir -p ~/.throttle3/bin && cd /tmp && \
+            OS=$(uname -s | tr '[:upper:]' '[:lower:]') && \
+            ARCH=$(uname -m) && \
+            if [ "$OS" = "linux" ]; then
+                case "$ARCH" in
+                    x86_64) FFMPEG_ARCH="amd64" ;;
+                    aarch64) FFMPEG_ARCH="arm64" ;;
+                    armv7l) FFMPEG_ARCH="armhf" ;;
+                    armv6l) FFMPEG_ARCH="armel" ;;
+                    *) echo "Unsupported arch: $ARCH" && exit 1 ;;
+                esac
+                wget -q https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-${FFMPEG_ARCH}-static.tar.xz -O ffmpeg.tar.xz && \
+                tar -xJf ffmpeg.tar.xz && \
+                FFMPEG_DIR=$(find . -type d -name "ffmpeg-*-${FFMPEG_ARCH}-static" | head -n 1) && \
+                mv $FFMPEG_DIR/ffmpeg ~/.throttle3/bin/ffmpeg && \
+                chmod +x ~/.throttle3/bin/ffmpeg && \
+                rm -rf ffmpeg* && \
+                echo "✓ Linux ffmpeg installed"
+            elif [ "$OS" = "darwin" ]; then
+                curl -sL https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip -o ffmpeg.zip && \
+                unzip -q ffmpeg.zip && \
+                mv ffmpeg ~/.throttle3/bin/ffmpeg && \
+                chmod +x ~/.throttle3/bin/ffmpeg && \
+                rm -rf ffmpeg* && \
+                echo "✓ macOS ffmpeg installed"
+            else
+                echo "Unsupported OS: $OS" && exit 1
+            fi
+            """
+            
+            do {
+                print("🔧 Installing ffmpeg...")
+                let result = try await sshManager.executeCommand(
+                    server: server,
+                    command: installCommand,
+                    timeout: 180,
+                    useTunnel: false
+                )
+                
+                print("✓ ffmpeg installed: \(result)")
+                
+                // Mark as installed in the server model
+                server.ffmpegInstalled = true
+            } catch {
+                print("❌ Failed to install ffmpeg: \(error)")
+            }
         } else {
-            print("✓ dufs binary found, skipping installation")
+            print("✓ ffmpeg already installed")
+            // Mark as installed to skip future checks
+            server.ffmpegInstalled = true
         }
-        
-        // Start dufs server
-        let password = keychain["\(server.id.uuidString)-password"] ?? ""
-        let dufsCommand = """
-        nohup ~/.throttle3/bin/dufs '\(downloadDir)' \
-            -p \(port) \
-            --bind 127.0.0.1 \
-            -a '\(server.user):\(password)@/:rw' \
-            > ~/.throttle3/dufs.log 2>&1 &
-        """
-        
-        print("🚀 Starting dufs server on port \(port)...")
-        try await sshManager.executeCommandBackground(
-            server: server,
-            command: dufsCommand,
-            useTunnel: false
-        )
-        
-        // Give dufs a moment to start
-        try await Task.sleep(nanoseconds: 1_500_000_000)
-        
-        // Verify it's running
-        let verifyCommand = "pgrep -f 'dufs.*-p \(port)\\b' >/dev/null && echo 'RUNNING' || echo 'NOT_RUNNING'"
-        let verifyOutput = try await sshManager.executeCommand(
-            server: server,
-            command: verifyCommand,
-            timeout: 5,
-            useTunnel: false
-        )
-        
-        if verifyOutput.trimmingCharacters(in: .whitespacesAndNewlines) != "RUNNING" {
-            throw NSError(domain: "ConnectionManager", code: 2, userInfo: [NSLocalizedDescriptionKey: "dufs failed to start on port \(port)"])
-        }
-        print("✓ dufs verified on port \(port)")
     }
+    
+
     
     // MARK: - Public Getters
     
     func getWebTunnelPort() -> Int? {
         return tunnelManager.getLocalPort(id: "web")
-    }
-    
-    func getFileServerTunnelPort() -> Int? {
-        return tunnelManager.getLocalPort(id: "fileserver")
     }
 }

@@ -24,6 +24,8 @@ struct ServerView: View {
     @State private var sshKey: String = ""
     @State private var sshPassword: String = ""
     @State private var showingKeyFilePicker = false
+    @State private var showingDeleteAlert = false
+    var tailscaleManager = TailscaleManager.shared
     
     init(server: Servers? = nil) {
         if let server = server {
@@ -33,8 +35,12 @@ struct ServerView: View {
             // Create a new server
             self.server = Servers()
             self.isNewServer = true
+            self.server.sshOn = true
+            self.server.tunnelWebOverSSH = true
         }
     }
+
+     
     
     var body: some View {
         NavigationStack {
@@ -61,7 +67,12 @@ struct ServerView: View {
                     Text("Default: /transmission/rpc")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Toggle("Uses SSL", isOn: $server.usesSSL)
+                    Toggle("Tunnel Over Tailscale", isOn: $server.useTailscale)
+                    .onChange(of: server.useTailscale) { oldValue, newValue in
+                        Task {
+                            await tailscaleManager.disconnect()
+                        }
+                    }
                 TextField("Username", text: $server.user)
                     .textContentType(.username)
 #if os(iOS)
@@ -73,16 +84,19 @@ struct ServerView: View {
             // #if os(macOS)
             // .padding(.bottom, 20)
             // #endif
-            Section("Tunnels & SSH") {
-                Toggle("Tunnel Over Tailscale", isOn: $server.useTailscale)
-                Toggle("Use SSH", isOn: $server.sshOn)
-                Text("Used to secure connection & serve files")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            Section("SSH Control Connection") {
+                // Text("Used to secure connection / serve files")
+                //     .font(.caption)
+                //     .foregroundStyle(.secondary)
                  if server.sshOn {
                     
                     TextField("SSH User", text: $server.sshUser)
                         .textContentType(.username)
+                        .onChange(of: server.sshUser) { oldValue, newValue in
+                            if oldValue != newValue {
+                                server.ffmpegInstalled = false
+                            }
+                        }
 #if os(iOS)
     .autocapitalization(.none)
 #endif
@@ -134,8 +148,26 @@ struct ServerView: View {
                 }
                 
                 if server.sshOn {
-                    Toggle("Tunnel Web Over SSH", isOn: $server.tunnelWebOverSSH)
-                    Toggle("Serve Files", isOn: $server.serveFilesOverTunnels)
+                    // Toggle("Tunnel Web Over SSH", isOn: $server.tunnelWebOverSSH)
+                    //     .onChange(of: server.tunnelWebOverSSH) { oldValue, newValue in
+                    //         if !newValue && !server.usesSSL {
+                    //             server.usesSSL = true
+                    //         }
+                    //     }
+                }
+            }
+            
+            if !isNewServer {
+                Section {
+                    Button(role: .destructive) {
+                        showingDeleteAlert = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("Delete Server")
+                            Spacer()
+                        }
+                    }
                 }
             }
         }
@@ -159,6 +191,14 @@ struct ServerView: View {
         #if os(macOS)
         .padding()
         #endif
+        .alert("Delete Server?", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                deleteServer()
+            }
+        } message: {
+            Text("This will permanently delete \(server.name) and all its settings.")
+        }
         .onAppear {
             loadSecrets()
         }
@@ -189,6 +229,8 @@ struct ServerView: View {
     private func saveSecrets() {
         // Add new server to context if it's new
         if isNewServer {
+            server.sshOn = true
+            server.tunnelWebOverSSH = true
             modelContext.insert(server)
         }
         
@@ -209,5 +251,24 @@ struct ServerView: View {
         } catch {
             print("Failed to save server: \(error)")
         }
+    }
+    
+    private func deleteServer() {
+        // Delete credentials from keychain
+        keychain["\(server.id.uuidString)-password"] = nil
+        keychain["\(server.id.uuidString)-sshkey"] = nil
+        keychain["\(server.id.uuidString)-sshpassword"] = nil
+        
+        // Delete server from context
+        modelContext.delete(server)
+        
+        // Save context
+        do {
+            try modelContext.save()
+        } catch {
+            print("Failed to delete server: \(error)")
+        }
+        
+        dismiss()
     }
 }

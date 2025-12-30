@@ -42,8 +42,9 @@ final class Servers {
     var sftpBase: String = ""
     var useTailscale: Bool = false
     var serveFilesOverTunnels: Bool = false
+    var ffmpegInstalled: Bool = false
     
-    init(name: String = "", id: UUID = UUID(), serverAddress: String = "", serverPort: String = "", usesSSL: Bool = false, url: String = "", user: String = "", rpcPath: String = "/transmission/rpc", sshOn: Bool = false, sshHost: String = "", sshUser: String = "", sshUsesKey: Bool = false, sshPort: String = "22", tunnelWebOverSSH: Bool = false, tunnelFilesOverSSH: Bool = false, tunnelPort: String = "", reverseProxyPort: String = "", sftpBase: String = "", useTailscale: Bool = false, serveFilesOverTunnels: Bool = false) {
+    init(name: String = "", id: UUID = UUID(), serverAddress: String = "", serverPort: String = "", usesSSL: Bool = false, url: String = "", user: String = "", rpcPath: String = "/transmission/rpc", sshOn: Bool = false, sshHost: String = "", sshUser: String = "", sshUsesKey: Bool = false, sshPort: String = "22", tunnelWebOverSSH: Bool = false, tunnelFilesOverSSH: Bool = false, tunnelPort: String = "", reverseProxyPort: String = "", sftpBase: String = "", useTailscale: Bool = false, serveFilesOverTunnels: Bool = false, ffmpegInstalled: Bool = false) {
         self.name = name
         self.id = id
         self.serverAddress = serverAddress
@@ -64,5 +65,6 @@ final class Servers {
         self.sftpBase = sftpBase
         self.useTailscale = useTailscale
         self.serveFilesOverTunnels = serveFilesOverTunnels
+        self.ffmpegInstalled = ffmpegInstalled
     }
 }

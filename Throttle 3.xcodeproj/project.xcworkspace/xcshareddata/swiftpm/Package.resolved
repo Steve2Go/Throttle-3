@@ -1,5 +1,5 @@
 {
-  "originHash" : "85c2d78bbcae4311e67c7864dcafbcedf1a9f07c3ee7aa983a2d26b3455649db",
+  "originHash" : "379830b20f63c3bd19e6bfff9ae222a55b14462ed8f412dc2335d2fff2755362",
   "pins" : [
     {
       "identity" : "keychainaccess",
@@ -8,15 +8,6 @@
       "state" : {
         "branch" : "master",
         "revision" : "e0c7eebc5a4465a3c4680764f26b7a61f567cdaf"
-      }
-    },
-    {
-      "identity" : "transmission-swift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/jameshurst/Transmission-Swift.git",
-      "state" : {
-        "revision" : "28f50f2a7943351e6059dc95d3cb28a60e9c8607",
-        "version" : "1.0.2"
       }
     }
   ],

@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		E752CAA82EFA03BA00EA4E24 /* Transmission in Frameworks */ = {isa = PBXBuildFile; productRef = E752CAA72EFA03BA00EA4E24 /* Transmission */; };
+		E76AF1582F02ACF8001F45FB /* Transmission in Frameworks */ = {isa = PBXBuildFile; productRef = E76AF1572F02ACF8001F45FB /* Transmission */; };
 		E7D712E72EFE28CF00CF3BF4 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = E7D712E62EFE28CF00CF3BF4 /* KeychainAccess */; };
 /* End PBXBuildFile section */
 
@@ -86,8 +86,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E76AF1582F02ACF8001F45FB /* Transmission in Frameworks */,
 				E7D712E72EFE28CF00CF3BF4 /* KeychainAccess in Frameworks */,
-				E752CAA82EFA03BA00EA4E24 /* Transmission in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -131,8 +131,8 @@
 			);
 			name = "Throttle 3";
 			packageProductDependencies = (
-				E752CAA72EFA03BA00EA4E24 /* Transmission */,
 				E7D712E62EFE28CF00CF3BF4 /* KeychainAccess */,
+				E76AF1572F02ACF8001F45FB /* Transmission */,
 			);
 			productName = "Throttle 3";
 			productReference = E752CA8E2EF9FFDE00EA4E24 /* Throttle 3.app */;
@@ -163,8 +163,8 @@
 			mainGroup = E752CA852EF9FFDE00EA4E24;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				E752CAA62EFA03BA00EA4E24 /* XCRemoteSwiftPackageReference "Transmission-Swift" */,
 				E7D712E52EFE28CF00CF3BF4 /* XCRemoteSwiftPackageReference "KeychainAccess" */,
+				E76AF1562F02ACF8001F45FB /* XCLocalSwiftPackageReference "../../transmission-swift/Transmission-Swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E752CA8F2EF9FFDE00EA4E24 /* Products */;
@@ -211,6 +211,7 @@
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
+					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
@@ -273,6 +274,7 @@
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
+					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
@@ -460,15 +462,14 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		E752CAA62EFA03BA00EA4E24 /* XCRemoteSwiftPackageReference "Transmission-Swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/jameshurst/Transmission-Swift.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.0.2;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		E76AF1562F02ACF8001F45FB /* XCLocalSwiftPackageReference "../../transmission-swift/Transmission-Swift" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../transmission-swift/Transmission-Swift";
 		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
 		E7D712E52EFE28CF00CF3BF4 /* XCRemoteSwiftPackageReference "KeychainAccess" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kishikawakatsumi/KeychainAccess";
@@ -480,9 +481,8 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		E752CAA72EFA03BA00EA4E24 /* Transmission */ = {
+		E76AF1572F02ACF8001F45FB /* Transmission */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E752CAA62EFA03BA00EA4E24 /* XCRemoteSwiftPackageReference "Transmission-Swift" */;
 			productName = Transmission;
 		};
 		E7D712E62EFE28CF00CF3BF4 /* KeychainAccess */ = {
