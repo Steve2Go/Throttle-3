@@ -26,6 +26,7 @@ struct TorrentRows: View {
     @ObservedObject private var thumbnailManager = TorrentThumbnailManager.shared
     @AppStorage("currentFilter") private var currentFilter: String = "dateAdded"
     @AppStorage("currentStatusFilter") private var currentStatusFilter: String = "all"
+    @State private var searchText: String = ""
     @State private var showServerList = false
     @State private var torrents: [Torrent] = []
     @State private var isLoadingTorrents = false
@@ -45,6 +46,13 @@ struct TorrentRows: View {
     // Computed property for filtered and sorted torrents
     var filteredAndSortedTorrents: [Torrent] {
         var result = torrents
+        
+        // Apply search filter
+        if !searchText.isEmpty {
+            result = result.filter { torrent in
+                (torrent.name ?? "").localizedCaseInsensitiveContains(searchText)
+            }
+        }
         
         // Apply status filter
         switch currentStatusFilter {
@@ -306,6 +314,11 @@ struct TorrentRows: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .navigationBarBackButtonHidden(true)
+       
+        .searchable(text: $searchText)
+#if os(iOS)
+        .applySearchToolbarBehaviorIfAvailable()
+        #endif
         .onAppear {
             if tailscaleManager.isConnected || (currentServer?.useTailscale == false) {
             Task {
@@ -540,3 +553,17 @@ let dummyTorrents = [
     DummyTorrent(name: "Big Buck Bunny", icon: "arrow.down.circle"),
     DummyTorrent(name: "Debian 12 ISO", icon: "arrow.down.circle")
 ]
+
+// Extension to conditionally apply searchToolbarBehavior for iOS 26+
+#if os(iOS)
+extension View {
+    @ViewBuilder
+    func applySearchToolbarBehaviorIfAvailable() -> some View {
+        if #available(iOS 26.0, *) {
+            self.searchToolbarBehavior(.minimize)
+        } else {
+            self
+        }
+    }
+}
+#endif
