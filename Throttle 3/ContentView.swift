@@ -13,7 +13,8 @@ struct ContentView: View {
 
     @Query private var servers: [Servers]
     @AppStorage("selectedServerUUID") private var selectedServerUUID: String = ""
-    @AppStorage("sidebarVisible") private var sidebarVisible: Bool = true
+    @AppStorage("currentFilter") private var currentFilter: String = "dateAdded"
+    @AppStorage("currentStatusFilter") private var currentStatusFilter: String = "all"
     @EnvironmentObject var store: Store
 
     @ObservedObject private var tailscaleManager = TailscaleManager.shared
@@ -36,9 +37,156 @@ struct ContentView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading)
                     ServerList()
+                    Text("Order")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.leading)
+                    
+                    VStack(spacing: 4) {
+                        Button(action: {
+                            currentFilter = "dateAdded"
+                        }) {
+                            HStack {
+                                Image(systemName: currentFilter == "dateAdded" ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
+                                Text("Date Added")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 6)
+                           // .background(currentFilter == "dateAdded" ? Color.accentColor.opacity(0.2) : Color.clear)
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button(action: {
+                            currentFilter = "name"
+                        }) {
+                            HStack {
+                                Image(systemName: currentFilter == "name" ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
+                                Text("Name")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 6)
+                            //.background(currentFilter == "name" ? Color.accentColor.opacity(0.2) : Color.clear)
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button(action: {
+                            currentFilter = "size"
+                        }) {
+                            HStack {
+                                Image(systemName: currentFilter == "size" ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
+                                Text("Size")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 6)
+                            //.background(currentFilter == "size" ? Color.accentColor.opacity(0.2) : Color.clear)
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button(action: {
+                            currentFilter = "progress"
+                        }) {
+                            HStack {
+                                Image(systemName: currentFilter == "progress" ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
+                                Text("Progress")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 6)
+                            //.background(currentFilter == "progress" ? Color.accentColor.opacity(0.2) : Color.clear)
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 8)
+                    
                     Text("Filters")
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading)
+                        .padding(.top, 12)
+                    
+                    VStack(spacing: 4) {
+                        Button(action: {
+                            currentStatusFilter = "all"
+                        }) {
+                            HStack {
+                                Image(systemName: currentStatusFilter == "all" ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                                Text("All")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 6)
+                            //.background(currentStatusFilter == "all" ? Color.accentColor.opacity(0.2) : Color.clear)
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button(action: {
+                            currentStatusFilter = "downloading"
+                        }) {
+                            HStack {
+                                Image(systemName: currentStatusFilter == "downloading" ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                                Text("Downloading")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 6)
+                            //.background(currentStatusFilter == "downloading" ? Color.accentColor.opacity(0.2) : Color.clear)
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button(action: {
+                            currentStatusFilter = "seeding"
+                        }) {
+                            HStack {
+                                Image(systemName: currentStatusFilter == "seeding" ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                                Text("Seeding")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 6)
+                           // .background(currentStatusFilter == "seeding" ? Color.accentColor.opacity(0.2) : Color.clear)
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button(action: {
+                            currentStatusFilter = "paused"
+                        }) {
+                            HStack {
+                                Image(systemName: currentStatusFilter == "paused" ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                                Text("Paused")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 6)
+                          //  .background(currentStatusFilter == "paused" ? Color.accentColor.opacity(0.2) : Color.clear)
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button(action: {
+                            currentStatusFilter = "completed"
+                        }) {
+                            HStack {
+                                Image(systemName: currentStatusFilter == "completed" ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                                Text("Completed")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 6)
+                           // .background(currentStatusFilter == "completed" ? Color.accentColor.opacity(0.2) : Color.clear)
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 8)
+                    
                     Spacer()
                 }
                 #if os(macOS)
