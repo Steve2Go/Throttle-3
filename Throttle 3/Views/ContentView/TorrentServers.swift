@@ -45,10 +45,10 @@ struct ServerList: View {
                             #endif
                         } label: {
                             HStack(spacing: 4) {
-                                Image(systemName: server.id.uuidString == selectedServerUUID ? "externaldrive.badge.checkmark" : "externaldrive")
+                                Image(server.id.uuidString == selectedServerUUID ? "custom.externaldrive.circle.fill" : "custom.externaldrive.circle")
                                     .padding(.leading, 6)
                                     .symbolRenderingMode(.palette)
-                                    .foregroundStyle(server.id.uuidString == selectedServerUUID ?.green : .primary,.primary)
+                                    .foregroundStyle(server.id.uuidString == selectedServerUUID ? .secondary : .primary,.primary)
                             
                                 Text(server.name)
 #if os(IOS)
