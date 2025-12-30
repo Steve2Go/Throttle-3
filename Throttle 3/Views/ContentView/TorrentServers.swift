@@ -47,8 +47,8 @@ struct ServerList: View {
                             HStack(spacing: 4) {
                                 Image(server.id.uuidString == selectedServerUUID ? "custom.externaldrive.circle.fill" : "custom.externaldrive.circle")
                                     .padding(.leading, 6)
-                                    .symbolRenderingMode(.palette)
-                                    .foregroundStyle(server.id.uuidString == selectedServerUUID ? .secondary : .primary,.primary)
+                                     .symbolRenderingMode(.monochrome)
+                                    // .foregroundStyle(server.id.uuidString == selectedServerUUID ? .secondary : .primary,.primary)
                             
                                 Text(server.name)
 #if os(IOS)

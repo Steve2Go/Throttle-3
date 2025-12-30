@@ -24,6 +24,8 @@ struct TorrentRows: View {
     @ObservedObject private var tunnelManager = TunnelManager.shared
     @ObservedObject private var connectionManager = ConnectionManager.shared
     @ObservedObject private var thumbnailManager = TorrentThumbnailManager.shared
+    @AppStorage("currentFilter") private var currentFilter: String = "dateAdded"
+    @AppStorage("currentStatusFilter") private var currentStatusFilter: String = "all"
     @State private var showServerList = false
     @State private var torrents: [Torrent] = []
     @State private var isLoadingTorrents = false
@@ -38,6 +40,56 @@ struct TorrentRows: View {
     var currentServer: Servers? {
         guard let currentServerID = store.currentServerID else { return nil }
         return servers.first(where: { $0.id == currentServerID })
+    }
+    
+    // Computed property for filtered and sorted torrents
+    var filteredAndSortedTorrents: [Torrent] {
+        var result = torrents
+        
+        // Apply status filter
+        switch currentStatusFilter {
+        case "downloading":
+            result = result.filter { torrent in
+                guard let status = torrent.status?.rawValue else { return false }
+                return status == 4 || status == 2 // Downloading or Verifying
+            }
+        case "seeding":
+            result = result.filter { torrent in
+                torrent.status?.rawValue == 6 // Seeding
+            }
+        case "paused":
+            result = result.filter { torrent in
+                torrent.status?.rawValue == 0 // Stopped
+            }
+        case "completed":
+            result = result.filter { torrent in
+                (torrent.progress ?? 0) >= 1.0
+            }
+        default: // "all"
+            break
+        }
+        
+        // Apply sorting
+        switch currentFilter {
+        case "name":
+            result = result.sorted { (t0: Torrent, t1: Torrent) in
+                (t0.name ?? "").localizedCaseInsensitiveCompare(t1.name ?? "") == .orderedAscending
+            }
+        case "size":
+            result = result.sorted { (t0: Torrent, t1: Torrent) in
+                (t0.size ?? 0) > (t1.size ?? 0)
+            }
+        case "progress":
+            result = result.sorted { (t0: Torrent, t1: Torrent) in
+                (t0.progress ?? 0) > (t1.progress ?? 0)
+            }
+        default: // "dateAdded"
+            result = result.sorted { (t0: Torrent, t1: Torrent) in
+                (t0.dateAdded ?? Date.distantPast) > (t1.dateAdded ?? Date.distantPast)
+            }
+        }
+        
+        return result
     }
     
     var body: some View {
@@ -65,7 +117,7 @@ struct TorrentRows: View {
             }  else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 8) {
-                        ForEach(torrents, id: \.hash) { torrent in
+                        ForEach(filteredAndSortedTorrents, id: \.hash) { torrent in
                        
                                 HStack {
                                     // Thumbnail display
