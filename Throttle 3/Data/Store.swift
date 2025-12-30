@@ -20,4 +20,5 @@ class Store: NSObject, ObservableObject {
     @Published var didLoad: Bool = false
     @Published var showTailscaleSheet: Bool = false
     @Published var showAddServer: Bool = false
+    @Published var navigationTrigger: UUID?
 }

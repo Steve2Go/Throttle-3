@@ -16,10 +16,12 @@ struct TorrentRows: View {
     //let isSidebarVisible: Bool
     //@Binding var columnVisibility: NavigationSplitViewVisibility
     
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) var sizeClass
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var store: Store
+    @EnvironmentObject var networkMonitor: NetworkMonitor
     @ObservedObject private var tailscaleManager = TailscaleManager.shared
     @ObservedObject private var tunnelManager = TunnelManager.shared
     @ObservedObject private var connectionManager = ConnectionManager.shared
@@ -115,10 +117,13 @@ struct TorrentRows: View {
                 .foregroundStyle(.primary, .secondary)
             }
             else if (currentServer != nil) && torrents.isEmpty && (connectionManager.isConnecting || ((currentServer!.tunnelWebOverSSH || currentServer!.tunnelFilesOverSSH)) && !connectionManager.isConnected && ((currentServer?.useTailscale) != false && tailscaleManager.isConnected) || ((currentServer?.useTailscale) == false)) {
-                ContentUnavailableView {
-                    Label("Tunneling...", systemImage: "externaldrive.connected.to.line.below")
-                        .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
-                }
+                ContentUnavailableView (
+                    "Connecting SSH Tunnel",
+                    image : "custom.server.rack.shield"
+                        
+            )
+                .symbolEffect(.wiggle.clockwise.byLayer, options: .repeat(.periodic(delay: 0.5)))
+
             } else if torrents.isEmpty && isLoadingTorrents {
                 ContentUnavailableView {
                     Label("Fetching...", systemImage: "arrow.up.arrow.down.square")
@@ -237,8 +242,8 @@ struct TorrentRows: View {
                    }
                } else if connectionManager.isConnecting && !torrents.isEmpty {
                     Button(action: {}) {
-                        Image(systemName: "externaldrive.connected.to.line.below")
-                        .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
+                        Image("custom.server.rack.shield")
+                            .symbolEffect(.wiggle.clockwise.byLayer, options: .repeat(.periodic(delay: 0.5)))
                     }
                 } else if isLoadingTorrents && !torrents.isEmpty {
                     Button(action: {}) {
@@ -258,15 +263,34 @@ struct TorrentRows: View {
                     #endif
                     
                 }
-
-                
-                Button(action: {}) {
-                    Image(systemName: "plus")
+                #if os(iOS)
+                    Menu {
+                        
+                        Button(action: {}) {
+                            Label("Add Torrent", systemImage: "plus")
+                        }
+                        
+                        Button(action: {
+                            // Create action
+                        }) {
+                            Label("Create Torrent", systemImage: "document.badge.plus")
+                        }
+                        
+                        
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                #endif
+            
+                Button(action: {
+                    // Selection action
+                }) {
+                    Label("Selection", systemImage: "checkmark.square")
                 }
                 
                 
                 Button(action: {}) {
-                    Image(systemName: "externaldrive.badge.icloud")
+                    Image(systemName: "internaldrive")
                 }
             }
             #if os(iOS)
@@ -275,29 +299,10 @@ struct TorrentRows: View {
                 Button(action: {
                     dismiss()
                 }) {
-                    Image("custom.externaldrive.badge.ellipsis")
+                    Image(systemName: "ellipsis.circle")
                 }
             }
-            ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    
-                    
-                    Button(action: {
-                        // Create action
-                    }) {
-                        Label("Create", systemImage: "document.badge.plus")
-                    }
-                    
-                    Button(action: {
-                        // Selection action
-                    }) {
-                        Label("Selection", systemImage: "checklist")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
-                }
             
-        }
             #endif
             
             
@@ -320,7 +325,29 @@ struct TorrentRows: View {
         .searchable(text: $searchText)
 #if os(iOS)
         .applySearchToolbarBehaviorIfAvailable()
+
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .active {
+               if tailscaleManager.isConnected || (currentServer?.useTailscale == false) {
+            Task {
+                await fetchTorrents()
+            }
+            }
+            }
+        }
+        
         #endif
+
+        .onChange(of: networkMonitor.gateways) {
+            tunnelManager.stopAllTunnels()
+            connectionManager.disconnect()
+            if tailscaleManager.isConnected || (currentServer?.useTailscale == false) {
+            Task {
+                await fetchTorrents()
+            }
+            }
+        }
+
         .onAppear {
             if tailscaleManager.isConnected || (currentServer?.useTailscale == false) {
             Task {

@@ -44,6 +44,9 @@ struct ContentView: View {
                     VStack(spacing: 4) {
                         Button(action: {
                             currentFilter = "dateAdded"
+                            #if os(iOS)
+                            store.navigationTrigger = store.currentServerID
+                            #endif
                         }) {
                             HStack {
                                 Image(systemName: currentFilter == "dateAdded" ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
@@ -59,6 +62,9 @@ struct ContentView: View {
                         
                         Button(action: {
                             currentFilter = "name"
+#if os(iOS)
+store.navigationTrigger = store.currentServerID
+#endif
                         }) {
                             HStack {
                                 Image(systemName: currentFilter == "name" ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
@@ -74,6 +80,9 @@ struct ContentView: View {
                         
                         Button(action: {
                             currentFilter = "size"
+#if os(iOS)
+store.navigationTrigger = store.currentServerID
+#endif
                         }) {
                             HStack {
                                 Image(systemName: currentFilter == "size" ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
@@ -89,6 +98,9 @@ struct ContentView: View {
                         
                         Button(action: {
                             currentFilter = "progress"
+#if os(iOS)
+store.navigationTrigger = store.currentServerID
+#endif
                         }) {
                             HStack {
                                 Image(systemName: currentFilter == "progress" ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
@@ -112,6 +124,9 @@ struct ContentView: View {
                     VStack(spacing: 4) {
                         Button(action: {
                             currentStatusFilter = "all"
+#if os(iOS)
+store.navigationTrigger = store.currentServerID
+#endif
                         }) {
                             HStack {
                                 Image(systemName: currentStatusFilter == "all" ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
@@ -127,6 +142,9 @@ struct ContentView: View {
                         
                         Button(action: {
                             currentStatusFilter = "downloading"
+#if os(iOS)
+store.navigationTrigger = store.currentServerID
+#endif
                         }) {
                             HStack {
                                 Image(systemName: currentStatusFilter == "downloading" ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
@@ -142,6 +160,9 @@ struct ContentView: View {
                         
                         Button(action: {
                             currentStatusFilter = "seeding"
+#if os(iOS)
+store.navigationTrigger = store.currentServerID
+#endif
                         }) {
                             HStack {
                                 Image(systemName: currentStatusFilter == "seeding" ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
@@ -157,6 +178,9 @@ struct ContentView: View {
                         
                         Button(action: {
                             currentStatusFilter = "paused"
+#if os(iOS)
+store.navigationTrigger = store.currentServerID
+#endif
                         }) {
                             HStack {
                                 Image(systemName: currentStatusFilter == "paused" ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
@@ -172,6 +196,9 @@ struct ContentView: View {
                         
                         Button(action: {
                             currentStatusFilter = "completed"
+#if os(iOS)
+store.navigationTrigger = store.currentServerID
+#endif
                         }) {
                             HStack {
                                 Image(systemName: currentStatusFilter == "completed" ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
@@ -211,7 +238,7 @@ struct ContentView: View {
                                 store.showAddServer = true
                             },
                             label: {
-                                Image(systemName: "externaldrive.badge.plus")
+                                Image("custom.server.rack.badge.plus")
                             })
                             .buttonStyle(.plain)
 

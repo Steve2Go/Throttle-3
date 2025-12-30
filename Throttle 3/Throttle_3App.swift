@@ -8,9 +8,13 @@
 import SwiftUI
 import SwiftData
 import KeychainAccess
+import Network
+import Combine
 
 @main
 struct Throttle_3App: App {
+    
+    @Environment(\.scenePhase) private var scenePhase
     
     //init Sync Settings & local settings
     @AppStorage("syncKeychain") var syncKeychain = false
@@ -22,6 +26,7 @@ struct Throttle_3App: App {
     @AppStorage("ServerToStart") var ServerToStart: String?
 
     @ObservedObject private var TSmanager = TailscaleManager.shared
+    @StateObject var networkMonitor = NetworkMonitor()
     @StateObject private var store = Store()
     
     @State private var hasCompletedInitialSync = false
@@ -87,6 +92,7 @@ struct Throttle_3App: App {
         WindowGroup {
             ContentView()
                 .environmentObject(store)
+                .environmentObject(networkMonitor)
                 .onAppear {
                     observeCloudKitActivity()
                 }
@@ -97,6 +103,32 @@ struct Throttle_3App: App {
                         }
                     }
                 }
+            #if os(iOS)
+                .onChange(of: scenePhase) {
+                    if scenePhase == .active {
+                        print("Reconnecting Tailscale")
+                        // If Tailscale is enabled, ensure it's connected
+                        if tailscaleEnabled {
+                            Task {
+                                // Refresh Tailscale status to ensure it's accurate
+                                // await TSmanager.checkConnectionStatus()
+                                await TSmanager.disconnect()
+                                await TSmanager.connect()
+                            }
+                        }
+                    }
+                }
+                .onChange(of: networkMonitor.gateways) {
+                    if tailscaleEnabled {
+                            Task {
+                                // Refresh Tailscale status to ensure it's accurate
+                                // await TSmanager.checkConnectionStatus()
+                                await TSmanager.disconnect()
+                                await TSmanager.connect()
+                            }
+                        }
+                }
+            #endif  
         }
         .modelContainer(sharedModelContainer)
                 #if os(macOS)
@@ -139,3 +171,21 @@ struct Throttle_3App: App {
     }
 }
 
+class NetworkMonitor: ObservableObject {
+    private let networkMonitor = NWPathMonitor()
+    private let workerQueue = DispatchQueue(label: "Monitor")
+    @Published var isConnected = false
+    @Published var isExpensive = false
+    @Published var gateways: [NWEndpoint] = []
+
+    init() {
+        networkMonitor.pathUpdateHandler = { path in
+            Task { @MainActor in
+                self.isConnected = path.status == .satisfied
+                self.isExpensive = path.isExpensive
+                self.gateways = path.gateways
+            }
+        }
+        networkMonitor.start(queue: workerQueue)
+    }
+}

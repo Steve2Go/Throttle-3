@@ -12,7 +12,6 @@ struct ServerList: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var servers: [Servers]
     @AppStorage("selectedServerUUID") private var selectedServerUUID: String = ""
-    @State private var navigationTrigger: UUID?
     @State private var editingServer: Servers?
     @EnvironmentObject var store: Store
     //@Binding var columnVisibility: NavigationSplitViewVisibility
@@ -32,7 +31,7 @@ struct ServerList: View {
                                 selectedServerUUID = server.id.uuidString
                                 store.currentServerID = server.id
                             }
-                            navigationTrigger = server.id
+                            store.navigationTrigger = server.id
                             #else
                             // On macOS, only navigate if switching to a different server
                             if selectedServerUUID != server.id.uuidString {
@@ -45,7 +44,7 @@ struct ServerList: View {
                             #endif
                         } label: {
                             HStack(spacing: 4) {
-                                Image(server.id.uuidString == selectedServerUUID ? "custom.externaldrive.circle.fill" : "custom.externaldrive.circle")
+                                Image(server.id.uuidString == selectedServerUUID ? "custom.server.rack.circle.fill" : "custom.server.rack.circle")
                                     .padding(.leading, 6)
                                      .symbolRenderingMode(.monochrome)
                                     // .foregroundStyle(server.id.uuidString == selectedServerUUID ? .secondary : .primary,.primary)
@@ -95,7 +94,7 @@ struct ServerList: View {
                    let uuid = UUID(uuidString: selectedServerUUID),
                    servers.contains(where: { $0.id == uuid }) {
                     store.didLoad = true
-                    navigationTrigger = uuid
+                    store.navigationTrigger = uuid
                     store.currentServerID = uuid
                 }
             }
@@ -107,20 +106,20 @@ struct ServerList: View {
                    let uuid = UUID(uuidString: selectedServerUUID),
                    servers.contains(where: { $0.id == uuid }) {
                     store.didLoad = true
-                    navigationTrigger = uuid
+                    store.navigationTrigger = uuid
                     store.currentServerID = uuid
                 }
             }
             #endif
             .background(
                 Group {
-                    if let uuid = navigationTrigger,
+                    if let uuid = store.navigationTrigger,
                        let server = servers.first(where: { $0.id == uuid }) {
                         NavigationLink(
                             destination: TorrentRows()
                                 .navigationTitle(server.name),
                             tag: uuid,
-                            selection: $navigationTrigger,
+                            selection: $store.navigationTrigger,
                             label: { EmptyView() }
                         )
                     }
