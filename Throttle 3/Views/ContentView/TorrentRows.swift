@@ -291,19 +291,6 @@ struct TorrentRows: View {
                 }
             
         }
-            #else
-//            if !isSidebarVisible {
-//                ToolbarItem {
-//                    Button(action: {
-//                        showServerList = true
-//                    }) {
-//                        Image(systemName: "externaldrive.badge.person.crop")
-//                    }
-//                }
-//                
-//                //TODO - Make a filters & servers dropdown
-//                
-//            }
             #endif
             
             
