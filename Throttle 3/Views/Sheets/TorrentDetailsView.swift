@@ -15,19 +15,15 @@ struct TorrentDetailsView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 16) {
                     nameSection
                     statusSection
                     Divider()
                     linksSection
                     Divider()
-                    transferSection
+                    transferAndSizeSection
                     Divider()
-                    sizeSection
-                    Divider()
-                    datesSection
-                    Divider()
-                    peersSection
+                    peersAndDateSection
                     trackersSection
                     hashSection
                 }
@@ -60,20 +56,24 @@ struct TorrentDetailsView: View {
     
     private var statusSection: some View {
         Section {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 SectionHeader(title: "Status")
                 
-                InfoRow(
-                    label: "Status",
-                    value: statusText(for: torrent.status?.rawValue),
-                    icon: iconForStatus(torrent.status?.rawValue)
-                )
-                
-                InfoRow(
-                    label: "Progress",
-                    value: progressText(torrent.progress),
-                    icon: "chart.bar.fill"
-                )
+                HStack(spacing: 20) {
+                    InfoRow(
+                        label: "Status",
+                        value: statusText(for: torrent.status?.rawValue),
+                        icon: iconForStatus(torrent.status?.rawValue)
+                    )
+                    
+                    Spacer()
+                    
+                    InfoRow(
+                        label: "Progress",
+                        value: progressText(torrent.progress),
+                        icon: "chart.bar.fill"
+                    )
+                }
                 
                 if let progress = torrent.progress {
                     let progressValue: Double = Double(progress)
@@ -111,99 +111,112 @@ struct TorrentDetailsView: View {
         }
     }
     
-    private var transferSection: some View {
+    private var transferAndSizeSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "Transfer")
+                SectionHeader(title: "Transfer & Size")
                 
-                InfoRow(
-                    label: "Downloaded",
-                    value: formatBytes(downloadedBytes()),
-                    icon: "arrow.down.circle.fill"
-                )
-                
-                InfoRow(
-                    label: "Uploaded",
-                    value: formatBytes(torrent.uploaded ?? 0),
-                    icon: "arrow.up.circle.fill"
-                )
-                
-                InfoRow(
-                    label: "Download Speed",
-                    value: formatSpeed(torrent.downloadRate ?? 0),
-                    icon: "speedometer"
-                )
-                
-                InfoRow(
-                    label: "Upload Speed",
-                    value: formatSpeed(torrent.uploadRate ?? 0),
-                    icon: "speedometer"
-                )
-            }
-        }
-        .padding(.horizontal)
-    }
-    
-    private var sizeSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "Size Information")
-                
-                InfoRow(
-                    label: "Total Size",
-                    value: formatBytes(torrent.size ?? 0),
-                    icon: "internaldrive"
-                )
-                
-                InfoRow(
-                    label: "Verified",
-                    value: formatBytes(torrent.bytesValid ?? 0),
-                    icon: "checkmark.circle"
-                )
-            }
-        }
-        .padding(.horizontal)
-    }
-    
-    private var datesSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "Dates")
-                
-                if let dateAdded = torrent.dateAdded {
-                    InfoRow(
-                        label: "Added",
-                        value: formatDate(dateAdded),
-                        icon: "calendar.badge.plus"
-                    )
+                HStack(alignment: .top, spacing: 20) {
+                    // Transfer column
+                    VStack(alignment: .leading, spacing: 8) {
+                        InfoRow(
+                            label: "Downloaded",
+                            value: formatBytes(downloadedBytes()),
+                            icon: "arrow.down.circle.fill"
+                        )
+                        
+                        InfoRow(
+                            label: "Uploaded",
+                            value: formatBytes(torrent.uploaded ?? 0),
+                            icon: "arrow.up.circle.fill"
+                        )
+                        
+                        InfoRow(
+                            label: "Down Speed",
+                            value: formatSpeed(torrent.downloadRate ?? 0),
+                            icon: "speedometer"
+                        )
+                        
+                        InfoRow(
+                            label: "Up Speed",
+                            value: formatSpeed(torrent.uploadRate ?? 0),
+                            icon: "speedometer"
+                        )
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    // Size column
+                    VStack(alignment: .leading, spacing: 8) {
+                        InfoRow(
+                            label: "Total Size",
+                            value: formatBytes(torrent.size ?? 0),
+                            icon: "internaldrive"
+                        )
+                        
+                        InfoRow(
+                            label: "Verified",
+                            value: formatBytes(torrent.bytesValid ?? 0),
+                            icon: "checkmark.circle"
+                        )
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
         .padding(.horizontal)
     }
     
-    private var peersSection: some View {
+    private var peersAndDateSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "Peers")
+                SectionHeader(title: "Peers & Info")
                 
-                InfoRow(
-                    label: "Connected",
-                    value: "\(torrent.totalPeers ?? 0)",
-                    icon: "person.2"
-                )
-                
-                InfoRow(
-                    label: "Seeding To Us",
-                    value: "\(torrent.seeds ?? 0)",
-                    icon: "arrow.down.to.line"
-                )
-                
-                InfoRow(
-                    label: "Downloading From Us",
-                    value: "\(torrent.peers ?? 0)",
-                    icon: "arrow.up.to.line"
-                )
+                HStack(alignment: .top, spacing: 20) {
+                    // Peers column
+                    VStack(alignment: .leading, spacing: 8) {
+                        InfoRow(
+                            label: "Connected",
+                            value: "\(torrent.totalPeers ?? 0)",
+                            icon: "person.2"
+                        )
+                        
+                        InfoRow(
+                            label: "Seeds",
+                            value: "\(torrent.seeds ?? 0)",
+                            icon: "arrow.down.to.line"
+                        )
+                        
+                        InfoRow(
+                            label: "Leeches",
+                            value: "\(torrent.peers ?? 0)",
+                            icon: "arrow.up.to.line"
+                        )
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    // Date column
+                    VStack(alignment: .leading, spacing: 8) {
+                        if let dateAdded = torrent.dateAdded {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Image(systemName: "calendar.badge.plus")
+                                        .foregroundStyle(.secondary)
+                                        .frame(width: 20)
+                                    
+                                    Text("Added On")
+                                        .foregroundStyle(.secondary)
+                                    
+                                    }
+                                    
+                                    Text(formatDate(dateAdded))
+                                        .font(.caption)
+                                }
+                            
+                           
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
         }
         .padding(.horizontal)

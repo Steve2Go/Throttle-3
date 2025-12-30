@@ -104,7 +104,7 @@ struct TorrentRows: View {
     
     var body: some View {
         Group {
-            if tailscaleManager.isConnecting {
+            if tailscaleManager.isConnecting && torrents.isEmpty {
                 ContentUnavailableView (
                     "Connecting Tailscale",
                     image : "custom.circle.grid.3x3"
@@ -114,12 +114,12 @@ struct TorrentRows: View {
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.primary, .secondary)
             }
-            else if (currentServer != nil) && (connectionManager.isConnecting || ((currentServer!.tunnelWebOverSSH || currentServer!.tunnelFilesOverSSH)) && !connectionManager.isConnected && ((currentServer?.useTailscale) != false && tailscaleManager.isConnected) || ((currentServer?.useTailscale) == false)) {
+            else if (currentServer != nil) && torrents.isEmpty && (connectionManager.isConnecting || ((currentServer!.tunnelWebOverSSH || currentServer!.tunnelFilesOverSSH)) && !connectionManager.isConnected && ((currentServer?.useTailscale) != false && tailscaleManager.isConnected) || ((currentServer?.useTailscale) == false)) {
                 ContentUnavailableView {
                     Label("Tunneling...", systemImage: "externaldrive.connected.to.line.below")
                         .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
                 }
-            } else if isLoadingTorrents {
+            } else if torrents.isEmpty && isLoadingTorrents {
                 ContentUnavailableView {
                     Label("Fetching...", systemImage: "arrow.up.arrow.down.square")
                         .symbolEffect(.bounce.up.byLayer, options: .repeat(.periodic(delay: 0.0)))
@@ -229,20 +229,24 @@ struct TorrentRows: View {
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
                
-//                if tailscaleManager.isConnecting {
-//                    Button(action: {}) {
-//                        Image(systemName: "circle.grid.3x3")
-//                        .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
-//                    }
-//                } else
-#if os(macOS)
-                if connectionManager.isConnecting {
+               if tailscaleManager.isConnecting  && !torrents.isEmpty {
+                   Button(action: {}) {
+                       Image("custom.circle.grid.3x3")
+                       .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
+                       .symbolRenderingMode(.hierarchical)
+                   }
+               } else if connectionManager.isConnecting && !torrents.isEmpty {
                     Button(action: {}) {
                         Image(systemName: "externaldrive.connected.to.line.below")
                         .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
                     }
+                } else if isLoadingTorrents && !torrents.isEmpty {
+                    Button(action: {}) {
+                        Image(systemName: "arrow.up.arrow.down.square")
+                            .symbolEffect(.bounce.up.byLayer, options: .repeat(.periodic(delay: 0.0)))
+                    }
                 } else {
-                    
+                    #if os(macOS)
                     Button(action: {
                         Task {
                             await fetchTorrents()
@@ -251,9 +255,10 @@ struct TorrentRows: View {
                         Image(systemName: "arrow.clockwise")
                             .symbolEffect(.rotate, options: .repeat(.periodic(delay: 0.5)), isActive: isLoadingTorrents)
                     }
+                    #endif
                     
                 }
-#endif
+
                 
                 Button(action: {}) {
                     Image(systemName: "plus")
@@ -301,6 +306,9 @@ struct TorrentRows: View {
         .sheet(isPresented: $showingTorrentDetails) {
             if let torrent = selectedTorrent {
                 TorrentDetailsView(torrent: torrent)
+                #if os(macOS)
+                .frame(minWidth: 400, minHeight: 710)
+                #endif
             }
         }
         .navigationTitle(currentServer?.name ?? "")
