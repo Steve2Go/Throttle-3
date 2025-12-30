@@ -33,6 +33,8 @@ struct TorrentRows: View {
     @State private var cancellables = Set<AnyCancellable>()
     @State private var visibleTorrentHashes: Set<String> = []
     @State private var thumbnailDebounceTask: Task<Void, Never>?
+    @State private var showingTorrentDetails = false
+    @State private var selectedTorrent: Torrent?
     @Query private var servers: [Servers]
     let keychain = Keychain(service: "com.srgim.throttle3")
     
@@ -169,8 +171,8 @@ struct TorrentRows: View {
                                     }
                                     
                                     Button {
-                                        print("Selected torrent: \(torrent.name ?? "Unknown")")
-                                        // TODO: Navigate to torrent detail
+                                        selectedTorrent = torrent
+                                        showingTorrentDetails = true
                                     }
                                     label:{
                                         VStack (alignment: .leading) {
@@ -295,6 +297,11 @@ struct TorrentRows: View {
             
             
             
+        }
+        .sheet(isPresented: $showingTorrentDetails) {
+            if let torrent = selectedTorrent {
+                TorrentDetailsView(torrent: torrent)
+            }
         }
         .navigationTitle(currentServer?.name ?? "")
         #if os(iOS)
