@@ -38,6 +38,7 @@ struct TorrentRows: View {
     @State private var showingTorrentDetails = false
     @State private var selectedTorrent: Torrent?
     @Query private var servers: [Servers]
+    @State private var doFetch = false
     let keychain = Keychain(service: "com.srgim.throttle3")
     
     
@@ -226,7 +227,7 @@ struct TorrentRows: View {
                 }
                 .refreshable {
                     Task {
-                        await fetchTorrents()
+                        await fetchTorrents(doConnect: false)
                     }
                 }
             }
@@ -254,7 +255,7 @@ struct TorrentRows: View {
                     #if os(macOS)
                     Button(action: {
                         Task {
-                            await fetchTorrents()
+                            await fetchTorrents(doConnect: false)
                         }
                     }) {
                         Image(systemName: "arrow.clockwise")
@@ -326,34 +327,37 @@ struct TorrentRows: View {
 #if os(iOS)
         .applySearchToolbarBehaviorIfAvailable()
 
-        .onChange(of: scenePhase) { newPhase in
-            if newPhase == .active {
-               if tailscaleManager.isConnected || (currentServer?.useTailscale == false) {
-            Task {
-                await fetchTorrents()
+        .onChange(of: scenePhase) {
+            if scenePhase == .active {
+                Task {
+                    await fetchTorrents()
+                    doFetch = true
+                    fetchTimer()
+                }
+            
+            }else{
+                doFetch = false
             }
-            }
+        }
+        .onChange(of: networkMonitor.gateways){
+            if scenePhase == .active {
+                connectionManager.disconnect()
             }
         }
         
         #endif
 
-        // .onChange(of: networkMonitor.gateways) {
-        //     tunnelManager.stopAllTunnels()
-        //     connectionManager.disconnect()
-        //     if tailscaleManager.isConnected || (currentServer?.useTailscale == false) {
-        //     Task {
-        //         await fetchTorrents()
-        //     }
-        //     }
-        // }
-
         .onAppear {
             
             Task {
                 await fetchTorrents()
+                doFetch = true
+                fetchTimer()
             }
             
+        }
+        .onDisappear {
+            doFetch = false
         }
         .onChange(of: store.currentServerID) { oldID, newID in
             print("🔄 Server switch detected: \(String(describing: oldID)) -> \(String(describing: newID))")
@@ -382,18 +386,18 @@ struct TorrentRows: View {
                 
             }
         }
-        .onChange(of: tailscaleManager.isConnected) { _, isConnected in
-            if isConnected {
-                Task {
-                    await fetchTorrents()
-                }
-            }
-        }
+        // .onChange(of: tailscaleManager.isConnected) { _, isConnected in
+        //     if isConnected {
+        //         Task {
+        //             await fetchTorrents()
+        //         }
+        //     }
+        // }
     }
     
     // MARK: - Fetch Torrents
     
-    func fetchTorrents() async {
+    func fetchTorrents(doConnect:Bool = true) async {
         guard let server = currentServer else {
             print("No server selected")
             return
@@ -417,11 +421,13 @@ struct TorrentRows: View {
         
         isLoadingTorrents = true
         defer { isLoadingTorrents = false }
+    
         
-
+        if doConnect {
             print("Connecting tunnels...")
             await connectionManager.connect(server: server)
             try? await Task.sleep(nanoseconds: 2_000_000_000)
+        }
         
         // Build Transmission URL
         let scheme = server.usesSSL ? "https" : "http"
@@ -454,24 +460,7 @@ struct TorrentRows: View {
         
         print("Connecting to Transmission at: \(urlString)")
         
-        // Create Transmission client
-//        #if os(iOS)
-//        var client: Transmission?
-//        if server.useTailscale && !server.tunnelWebOverSSH && (tailscaleManager.node != nil){
-//            do {
-//                let (sessionConfig, _) = try await URLSessionConfiguration.tailscaleSession(tailscaleManager.node!)
-//                let session = URLSession(configuration: sessionConfig)
-//                client = Transmission(baseURL: url, username: server.user, password: password, session: session)
-//            } catch {
-//                
-//            }
-////        } else {
-//            client = Transmission(baseURL: url, username: server.user, password: password, )
-////        }
-//
-//        #else
         let client = Transmission(baseURL: url, username: server.user, password: password, )
-//        #endif
 
         // Use Combine to async/await bridge
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
@@ -509,6 +498,17 @@ struct TorrentRows: View {
             return "icloud"
         }
     }
+    private func fetchTimer() {
+        if !doFetch {
+            return
+        }
+        Task {
+            
+            try? await Task.sleep(nanoseconds: 20_000_000_000)
+            await fetchTorrents()
+            fetchTimer()
+        }
+        }
     
     private func formatBytes(_ bytes: Int64) -> String {
         let formatter = ByteCountFormatter()

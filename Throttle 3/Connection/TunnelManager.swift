@@ -62,6 +62,7 @@ class TunnelManager: ObservableObject {
         }
         
         guard tunnels[id]?.isConnecting == false else { return }
+        guard tunnels[id]?.isActive == false else { return }
         
         tunnels[id]?.isConnecting = true
         tunnels[id]?.errorMessage = nil

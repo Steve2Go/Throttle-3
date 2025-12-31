@@ -135,23 +135,29 @@ class ConnectionManager: ObservableObject {
     
     /// Disconnect all tunnels
     func disconnect() {
-        tunnelManager.stopAllTunnels()
-        isConnected = false
-        isConnecting = false
-        currentServerID = nil
-        print("✓ ConnectionManager: All tunnels disconnected, state cleared")
+        Task {
+            tunnelManager.stopAllTunnels()
+            await tailscaleManager.disconnect()
+            isConnected = false
+            isConnecting = false
+            currentServerID = nil
+            print("✓ ConnectionManager: All tunnels disconnected, state cleared")
+        }
     }
     
     // MARK: - Private Methods
     
     private func startWebTunnel(server: Servers) async {
+        if await tunnelManager.checkTunnelConnectivity(id: "web") {
+            return
+        }
+        
         // Check and install ffmpeg if needed (before starting tunnel)
         if !server.ffmpegInstalled {
             await checkAndInstallFfmpeg(server: server)
         } else{
             print("✓ ffmpeg already installed, skipping check")
         }
-        
         let credentials = loadCredentials(for: server)
         
         // Use port + 8000 for local web tunnel (e.g., 80 -> 8080, 9091 -> 17091)

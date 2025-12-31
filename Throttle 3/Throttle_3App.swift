@@ -28,6 +28,7 @@ struct Throttle_3App: App {
     //@ObservedObject private var TSmanager = TailscaleManager.shared
     @StateObject var networkMonitor = NetworkMonitor()
     @StateObject private var store = Store()
+    @ObservedObject private var connetcionManager = ConnectionManager.shared
     
     @State private var hasCompletedInitialSync = false
     @State private var containerRefreshTrigger = 0
@@ -104,20 +105,11 @@ struct Throttle_3App: App {
 //                    }
 //                }
             #if os(iOS)
-//                .onChange(of: scenePhase) {
-//                    if scenePhase == .active {
-//                        print("Reconnecting Tailscale")
-//                        // If Tailscale is enabled, ensure it's connected
-//                        if tailscaleEnabled {
-//                            Task {
-//                                // Refresh Tailscale status to ensure it's accurate
-//                                // await TSmanager.checkConnectionStatus()
-//                                await TSmanager.disconnect()
-//                                await TSmanager.connect()
-//                            }
-//                        }
-//                    }
-//                }
+                .onChange(of: scenePhase) {
+                    if scenePhase == .inactive {
+                        connetcionManager.disconnect()
+                    }
+                }
 //                .onChange(of: networkMonitor.gateways) {
 //                    if tailscaleEnabled {
 //                            Task {

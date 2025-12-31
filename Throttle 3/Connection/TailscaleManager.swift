@@ -55,7 +55,10 @@ class TailscaleManager: ObservableObject {
                     .urls(for: .documentDirectory, in: .userDomainMask)[0]
                     .appendingPathComponent("tailscale")
                 
-                try FileManager.default.createDirectory(at: dataDir, withIntermediateDirectories: true)
+                // Only create directory if it doesn't exist
+                if !FileManager.default.fileExists(atPath: dataDir.path) {
+                    try FileManager.default.createDirectory(at: dataDir, withIntermediateDirectories: true)
+                }
                 
                 // Get device name for hostname
                 #if os(iOS)
@@ -72,7 +75,7 @@ class TailscaleManager: ObservableObject {
                     path: dataDir.path,
                     authKey: nil,
                     controlURL: kDefaultControlURL,
-                    ephemeral: true
+                    ephemeral: false
                 )
                 
                 // Create node
