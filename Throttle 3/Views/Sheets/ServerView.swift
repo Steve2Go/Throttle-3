@@ -68,11 +68,11 @@ struct ServerView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Toggle("Tunnel Over Tailscale", isOn: $server.useTailscale)
-                    .onChange(of: server.useTailscale) { oldValue, newValue in
-                        Task {
-                            await tailscaleManager.disconnect()
-                        }
-                    }
+//                    .onChange(of: server.useTailscale) { oldValue, newValue in
+//                        Task {
+//                            await tailscaleManager.disconnect()
+//                        }
+//                    }
                 TextField("Username", text: $server.user)
                     .textContentType(.username)
 #if os(iOS)
@@ -132,13 +132,13 @@ struct ServerView: View {
                             .textContentType(.password)
                     }
                      Toggle("Use SSH Key", isOn: $server.sshUsesKey)
-                     TextField("SSH Host", text: $server.sshHost)
+//                     TextField("SSH Host", text: $server.sshHost)
  #if os(iOS)
-     .autocapitalization(.none)
+//     .autocapitalization(.none)
  #endif
-                      Text("If different to Server Host")
-                          .font(.caption)
-                          .foregroundStyle(.secondary)
+//                      Text("If different to Server Host")
+//                          .font(.caption)
+//                          .foregroundStyle(.secondary)
                      TextField("SSH Port", text: $server.sshPort)
  #if os(iOS)
      .autocapitalization(.none)

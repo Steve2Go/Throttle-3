@@ -96,38 +96,38 @@ struct Throttle_3App: App {
                 .onAppear {
                     observeCloudKitActivity()
                 }
-                .onChange(of: hasCompletedInitialSync) { _, completed in
-                    if completed && tailscaleEnabled && !TSmanager.isConnected {
-                        Task {
-                            await TSmanager.connect()
-                        }
-                    }
-                }
+//                .onChange(of: hasCompletedInitialSync) { _, completed in
+//                    if completed && tailscaleEnabled && !TSmanager.isConnected {
+//                        Task {
+//                            await TSmanager.connect()
+//                        }
+//                    }
+//                }
             #if os(iOS)
-                .onChange(of: scenePhase) {
-                    if scenePhase == .active {
-                        print("Reconnecting Tailscale")
-                        // If Tailscale is enabled, ensure it's connected
-                        if tailscaleEnabled {
-                            Task {
-                                // Refresh Tailscale status to ensure it's accurate
-                                // await TSmanager.checkConnectionStatus()
-                                await TSmanager.disconnect()
-                                await TSmanager.connect()
-                            }
-                        }
-                    }
-                }
-                .onChange(of: networkMonitor.gateways) {
-                    if tailscaleEnabled {
-                            Task {
-                                // Refresh Tailscale status to ensure it's accurate
-                                // await TSmanager.checkConnectionStatus()
-                                await TSmanager.disconnect()
-                                await TSmanager.connect()
-                            }
-                        }
-                }
+//                .onChange(of: scenePhase) {
+//                    if scenePhase == .active {
+//                        print("Reconnecting Tailscale")
+//                        // If Tailscale is enabled, ensure it's connected
+//                        if tailscaleEnabled {
+//                            Task {
+//                                // Refresh Tailscale status to ensure it's accurate
+//                                // await TSmanager.checkConnectionStatus()
+//                                await TSmanager.disconnect()
+//                                await TSmanager.connect()
+//                            }
+//                        }
+//                    }
+//                }
+//                .onChange(of: networkMonitor.gateways) {
+//                    if tailscaleEnabled {
+//                            Task {
+//                                // Refresh Tailscale status to ensure it's accurate
+//                                // await TSmanager.checkConnectionStatus()
+//                                await TSmanager.disconnect()
+//                                await TSmanager.connect()
+//                            }
+//                        }
+//                }
             #endif  
         }
         .modelContainer(sharedModelContainer)

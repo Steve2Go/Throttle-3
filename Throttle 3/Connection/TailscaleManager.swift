@@ -16,7 +16,7 @@ import TailscaleKit
 #if os(iOS)
 @MainActor
 class TailscaleManager: ObservableObject {
-    static let shared = TailscaleManager()
+    var shared = TailscaleManager()
     
     @Published var isConnected: Bool = false 
     @Published var isConnecting: Bool = false
@@ -113,15 +113,45 @@ class TailscaleManager: ObservableObject {
     }
     
     func disconnect() async {
-        // Don't actually bring the node down - just update our state
-        // This allows instant reconnection since the node stays ready
-        isConnected = false
-        isConnecting = false
+        // Reset to initial state but retain credentials for fast reconnect
+        guard let node = node else {
+            // If no node, just reset state
+            isConnected = false
+            isConnecting = false
+            authURL = nil
+            errorMessage = nil
+            dismissSafariViewController()
+            print("✓ Tailscale disconnected (no node to clean up)")
+            return
+        }
         
-        // Dismiss Safari if open
-        dismissSafariViewController()
-        
-        print("✓ Tailscale disconnected (node kept ready for fast reconnect)")
+        do {
+            // Bring node down
+            try await node.down()
+            
+            // Clean up all state
+            messageProcessor?.cancel()
+            messageProcessor = nil
+            localAPIClient = nil
+            self.node = nil
+            proxyConfig = nil
+            
+            isConnected = false
+            isConnecting = false
+            authURL = nil
+            errorMessage = nil
+            
+            // Dismiss Safari if open
+            dismissSafariViewController()
+            
+            // NOTE: We don't delete the tailscale directory or clear UserDefaults
+            // This preserves credentials for fast reconnection
+            
+            print("✓ Tailscale disconnected (credentials retained)")
+        } catch {
+            errorMessage = "Failed to disconnect: \(error.localizedDescription)"
+            print("❌ Tailscale disconnect failed: \(error)")
+        }
     }
 
     func clear() async {
@@ -426,13 +456,18 @@ class TailscaleManager: ObservableObject {
         // Run tailscale down
         _ = runCommand(path, args: ["down"])
         
-        // Update status immediately
-        checkStatus()
+        // Stop monitoring
+        stopStatusMonitoring()
         
-        // Wipe the auth
-        UserDefaults.standard.removeObject(forKey: "TailscaleAuth")
+        // Reset all state to initial values
+        isConnected = false
+        isConnecting = false
+        errorMessage = nil
         
-        print("✓ Tailscale disconnected")
+        // NOTE: We don't clear UserDefaults auth state
+        // This preserves the connection preference for next app launch
+        
+        print("✓ Tailscale disconnected (credentials retained)")
     }
 
 

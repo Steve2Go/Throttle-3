@@ -24,18 +24,18 @@ struct TailscaleToggle: View {
                     get: { tailscaleEnabled },
                     set: { enabled in
                         tailscaleEnabled = enabled
-                        Task {
-                            if enabled {
-                                await manager.connect()
-                            } else {
-                                await manager.disconnect()
-                            }
-                        }
+//                        Task {
+//                            if enabled {
+//                                await manager.connect()
+//                            } else {
+//                                await manager.disconnect()
+//                            }
+//                        }
                     }
                 ))
                 .disabled(manager.isConnecting)
                 #if os(iOS)
-                Button("Clear") {
+                Button("Reset") {
                     Task{
                         await manager.clear()
                     }
