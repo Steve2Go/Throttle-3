@@ -25,7 +25,7 @@ struct ServerView: View {
     @State private var sshPassword: String = ""
     @State private var showingKeyFilePicker = false
     @State private var showingDeleteAlert = false
-    var tailscaleManager = TailscaleManager.shared
+    //var tailscaleManager = TailscaleManager.shared
     
     init(server: Servers? = nil) {
         if let server = server {

@@ -16,7 +16,7 @@ import TailscaleKit
 #if os(iOS)
 @MainActor
 class TailscaleManager: ObservableObject {
-    var shared = TailscaleManager()
+    static let shared = TailscaleManager()
     
     @Published var isConnected: Bool = false 
     @Published var isConnecting: Bool = false
@@ -113,7 +113,7 @@ class TailscaleManager: ObservableObject {
     }
     
     func disconnect() async {
-        // Reset to initial state but retain credentials for fast reconnect
+        // Reset to initial state but keep credentials for easy reconnect
         guard let node = node else {
             // If no node, just reset state
             isConnected = false
@@ -144,10 +144,10 @@ class TailscaleManager: ObservableObject {
             // Dismiss Safari if open
             dismissSafariViewController()
             
-            // NOTE: We don't delete the tailscale directory or clear UserDefaults
-            // This preserves credentials for fast reconnection
+            // Note: We keep the Tailscale state directory and UserDefaults auth
+            // This allows reconnecting without re-authentication
             
-            print("✓ Tailscale disconnected (credentials retained)")
+            print("✓ Tailscale disconnected and reset to initial state (credentials retained)")
         } catch {
             errorMessage = "Failed to disconnect: \(error.localizedDescription)"
             print("❌ Tailscale disconnect failed: \(error)")
@@ -464,10 +464,10 @@ class TailscaleManager: ObservableObject {
         isConnecting = false
         errorMessage = nil
         
-        // NOTE: We don't clear UserDefaults auth state
-        // This preserves the connection preference for next app launch
+        // Note: We keep the UserDefaults auth for easy reconnection
+        // Use clear() if you want to wipe credentials
         
-        print("✓ Tailscale disconnected (credentials retained)")
+        print("✓ Tailscale disconnected and reset to initial state (credentials retained)")
     }
 
 

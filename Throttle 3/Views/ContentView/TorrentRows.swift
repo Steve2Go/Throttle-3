@@ -338,26 +338,21 @@ struct TorrentRows: View {
         
         #endif
 
-        .onChange(of: networkMonitor.gateways) {
-            tunnelManager.stopAllTunnels()
-            connectionManager.disconnect()
-            if tailscaleManager.isConnected || (currentServer?.useTailscale == false) {
-            Task {
-                await fetchTorrents()
-            }
-            }
-        }
+        // .onChange(of: networkMonitor.gateways) {
+        //     tunnelManager.stopAllTunnels()
+        //     connectionManager.disconnect()
+        //     if tailscaleManager.isConnected || (currentServer?.useTailscale == false) {
+        //     Task {
+        //         await fetchTorrents()
+        //     }
+        //     }
+        // }
 
         .onAppear {
-            if tailscaleManager.isConnected || (currentServer?.useTailscale == false) {
+            
             Task {
                 await fetchTorrents()
             }
-            } else if currentServer?.useTailscale == true && !tailscaleManager.isConnecting {
-                    Task {
-                        await tailscaleManager.connect()
-                    }
-                }
             
         }
         .onChange(of: store.currentServerID) { oldID, newID in
@@ -423,19 +418,10 @@ struct TorrentRows: View {
         isLoadingTorrents = true
         defer { isLoadingTorrents = false }
         
-        // Check Tailscale connection
-        if server.useTailscale && !tailscaleManager.isConnected {
-            print("Connecting to Tailscale...")
-            await tailscaleManager.connect()
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-        }
-        
-        // Check tunnel connection
-        if server.tunnelWebOverSSH && !tunnelManager.isActive {
-            print("Connecting tunnel...")
+
+            print("Connecting tunnels...")
             await connectionManager.connect(server: server)
             try? await Task.sleep(nanoseconds: 2_000_000_000)
-        }
         
         // Build Transmission URL
         let scheme = server.usesSSL ? "https" : "http"

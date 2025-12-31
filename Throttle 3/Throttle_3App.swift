@@ -25,7 +25,7 @@ struct Throttle_3App: App {
     @AppStorage("TailscaleEnabled") var tailscaleEnabled = false
     @AppStorage("ServerToStart") var ServerToStart: String?
 
-    @ObservedObject private var TSmanager = TailscaleManager.shared
+    //@ObservedObject private var TSmanager = TailscaleManager.shared
     @StateObject var networkMonitor = NetworkMonitor()
     @StateObject private var store = Store()
     
