@@ -303,16 +303,18 @@ struct TorrentRows: View {
 #if os(iOS)
         .applySearchToolbarBehaviorIfAvailable()
 #endif
-
+        .onChange(of: store.currentServerID){
+            store.torrents = []
+            visibleTorrentHashes.removeAll()
+            cancellables.removeAll()
+        }
         .onChange(of: store.isConnected) {
             if store.isConnected {
-                print("🔄 Server switch detected: \(String(describing: oldID)) -> \(String(describing: newID))")
                 
                 // Clear all state when switching servers
-                visibleTorrentHashes.removeAll()
-                cancellables.removeAll()
+
                 Task {
-                    fetchTorrents()
+                    await fetchTorrents()
                 }
             }
         }
@@ -358,7 +360,7 @@ struct TorrentRows: View {
 
         // Use Combine to async/await bridge
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            client.request(store.torrents(properties: Torrent.PropertyKeys.allCases))
+            client.request(.torrents(properties: Torrent.PropertyKeys.allCases))
                 .receive(on: DispatchQueue.main)
                 .sink(
                     receiveCompletion: { completion in
@@ -367,7 +369,7 @@ struct TorrentRows: View {
                         }
                         continuation.resume()
                     },
-                    receiveValue: { fetchedTorrents in
+                    receiveValue: { (fetchedTorrents: [Torrent]) in
                         store.torrents = fetchedTorrents
                         print("✅ Fetched \(fetchedTorrents.count) torrents")
                     }

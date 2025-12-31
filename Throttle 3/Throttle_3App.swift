@@ -24,7 +24,8 @@ struct Throttle_3App: App {
     @AppStorage("instance") var instance: String = UUID().uuidString
     @AppStorage("TailscaleEnabled") var tailscaleEnabled = false
     @AppStorage("ServerToStart") var ServerToStart: String?
-
+     @Environment(\.modelContext) private var modelContext
+    @Query var servers: [Servers]
     @ObservedObject private var TSmanager = TailscaleManager.shared
     @StateObject var networkMonitor = NetworkMonitor()
     @StateObject private var store = Store()
@@ -116,10 +117,8 @@ struct Throttle_3App: App {
                     }
             
                     .onChange(of: store.currentServerID) { oldID, newID in
-                        store.torrents = []
+                       
                         store.isConnected = false
-//                        visibleTorrentHashes.removeAll()
-//                        cancellables.removeAll()
             
                         Task {
                             // Disconnect from old server
@@ -154,7 +153,7 @@ struct Throttle_3App: App {
                     
                 }
             #endif  
-        }
+        } 
         .modelContainer(sharedModelContainer)
                 #if os(macOS)
  .commands {
@@ -185,7 +184,6 @@ struct Throttle_3App: App {
     }
     
     private func connectServer(){
-        @Query var servers: [Servers]
         if (store.currentServerID != nil), let currentServer = servers.first(where: { $0.id == store.currentServerID }){
             connectionManager.disconnect()
             Task {
