@@ -25,10 +25,10 @@ struct Throttle_3App: App {
     @AppStorage("TailscaleEnabled") var tailscaleEnabled = false
     @AppStorage("ServerToStart") var ServerToStart: String?
 
-    //@ObservedObject private var TSmanager = TailscaleManager.shared
+    @ObservedObject private var TSmanager = TailscaleManager.shared
     @StateObject var networkMonitor = NetworkMonitor()
     @StateObject private var store = Store()
-    @ObservedObject private var connetcionManager = ConnectionManager.shared
+    @ObservedObject private var connectionManager = ConnectionManager.shared
     
     @State private var hasCompletedInitialSync = false
     @State private var containerRefreshTrigger = 0
@@ -95,31 +95,64 @@ struct Throttle_3App: App {
                 .environmentObject(store)
                 .environmentObject(networkMonitor)
                 .onAppear {
-                    observeCloudKitActivity()
-                }
-//                .onChange(of: hasCompletedInitialSync) { _, completed in
-//                    if completed && tailscaleEnabled && !TSmanager.isConnected {
-//                        Task {
-//                            await TSmanager.connect()
-//                        }
-//                    }
-//                }
-            #if os(iOS)
-                .onChange(of: scenePhase) {
-                    if scenePhase == .inactive {
-                        connetcionManager.disconnect()
+                    if syncServers == false {
+                        connectWithTailscale()
+                    } else{
+                        ///wait for icloud update
+                        observeCloudKitActivity()
                     }
                 }
-//                .onChange(of: networkMonitor.gateways) {
-//                    if tailscaleEnabled {
-//                            Task {
-//                                // Refresh Tailscale status to ensure it's accurate
-//                                // await TSmanager.checkConnectionStatus()
-//                                await TSmanager.disconnect()
-//                                await TSmanager.connect()
-//                            }
-//                        }
-//                }
+            ///Connect servers if known
+                .onChange(of: hasCompletedInitialSync) { _, completed in
+                    if completed {
+                        connectWithTailscale()
+                    }
+                }
+                    ///Tailscale Up
+                    .onChange(of: TSmanager.isConnected) {
+                        if TSmanager.isConnected {
+                            connectServer()
+                        }
+                    }
+            
+                    .onChange(of: store.currentServerID) { oldID, newID in
+                        store.torrents = []
+                        store.isConnected = false
+//                        visibleTorrentHashes.removeAll()
+//                        cancellables.removeAll()
+            
+                        Task {
+                            // Disconnect from old server
+                            connectionManager.disconnect()
+            
+                            // Wait for disconnect to complete
+                            try? await Task.sleep(nanoseconds: 500_000_000) // .5 second
+            
+                            // Wait for currentServerID to clear
+                            while connectionManager.currentServerID != nil {
+                                try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+                            }
+            
+            
+                        }
+                    }
+            #if os(iOS)
+                .onChange(of: scenePhase) {
+                    ///opened from BG
+                    if scenePhase == .active {
+                        connectWithTailscale()
+                    } else{
+                        store.isConnected = false
+                    }
+                }
+                .onChange(of: networkMonitor.gateways) {
+                    ///network changed
+                    if scenePhase == .active {
+                        store.isConnected = false
+                        connectWithTailscale()
+                    }
+                    
+                }
             #endif  
         }
         .modelContainer(sharedModelContainer)
@@ -137,6 +170,30 @@ struct Throttle_3App: App {
                     }
                     }
         #endif
+    }
+    
+    private func connectWithTailscale() {
+        if tailscaleEnabled {
+            Task {
+                await TSmanager.connect()
+            }
+        
+        } else{
+            connectServer()
+        }
+        
+    }
+    
+    private func connectServer(){
+        @Query var servers: [Servers]
+        if (store.currentServerID != nil), let currentServer = servers.first(where: { $0.id == store.currentServerID }){
+            connectionManager.disconnect()
+            Task {
+                try? await Task.sleep(nanoseconds: 500_000_000) // .5 second after last activity
+                await connectionManager.connect(server: currentServer)
+                store.isConnected = true
+            }
+        }
     }
     
     private func observeCloudKitActivity() {

@@ -56,6 +56,7 @@ class TunnelManager: ObservableObject {
     // MARK: - Public Interface
     
     func startTunnel(id: String, config: SSHTunnelConfig) async {
+        stopTunnel(id: id)
         // Initialize tunnel state if it doesn't exist
         if tunnels[id] == nil {
             tunnels[id] = TunnelState()
@@ -85,18 +86,18 @@ class TunnelManager: ObservableObject {
                 
                 // Start tunnel in background - it will run indefinitely
                 Task.detached {
-                    try await self.establishSSHTunnel(config: config, socks5Address: socks5Address, socks5ProxyAuth: socks5Auth)
+                    try await self.establishSSHTunnel(tunnelID: id, config: config, socks5Address: socks5Address, socks5ProxyAuth: socks5Auth)
                 }
                 
             } else {
                 // Direct SSH tunnel without Tailscale - start in background
                 Task.detached {
-                   try await self.establishSSHTunnel(config: config, socks5Address: nil, socks5ProxyAuth: nil)
+                   try await self.establishSSHTunnel(tunnelID: id, config: config, socks5Address: nil, socks5ProxyAuth: nil)
                 }
             }
             #else
             Task.detached {
-               try await self.establishSSHTunnel(config: config, socks5Address: nil, socks5ProxyAuth: nil)
+               try await self.establishSSHTunnel(tunnelID: id, config: config, socks5Address: nil, socks5ProxyAuth: nil)
             }
             #endif
             
@@ -124,14 +125,26 @@ class TunnelManager: ObservableObject {
     }
     
     func stopTunnel(id: String) {
-        // TODO: Implement tunnel shutdown
-        // SshLib doesn't expose a stop function in the header we saw
-        // May need to add that or track the process/connection
+        guard tunnels[id] != nil else {
+            print("⚠️ Tunnel [\(id)] not found")
+            return
+        }
         
-        // Completely remove the tunnel state to ensure clean reconnection
+        // Call the library's stop function
+        var error: NSError?
+        SshlibStopSSHTunnel(id, &error)
+        
+        if let error = error {
+            print("❌ Error stopping tunnel [\(id)]: \(error.localizedDescription)")
+        } else {
+            print("✓ SSH tunnel [\(id)] stopped successfully")
+        }
+        
+        // Remove the tunnel state
         tunnels.removeValue(forKey: id)
         
-        print("✓ SSH tunnel [\(id)] stopped and state cleared")
+        // Update global connecting state
+        updateGlobalConnectingState()
     }
     
     func stopAllTunnels() {
@@ -197,21 +210,27 @@ class TunnelManager: ObservableObject {
         isConnecting = tunnels.values.contains(where: { $0.isConnecting })
     }
     
-    private func establishSSHTunnel(config: SSHTunnelConfig, socks5Address: String?, socks5ProxyAuth: String?) async throws {
+    private func establishSSHTunnel(tunnelID: String, config: SSHTunnelConfig, socks5Address: String?, socks5ProxyAuth: String?) async throws {
         let sshAddress = "\(config.sshHost):\(config.sshPort)"
         
         // Call SshLib on a background thread since it's a blocking call
-        await Task.detached {
-            SshlibInitSSH(
+        try await Task.detached {
+            var error: NSError?
+            SshlibStartSSHTunnel(
+                tunnelID,
                 sshAddress,
-                socks5Address,
-                socks5ProxyAuth,
+                socks5Address ?? "",
+                socks5ProxyAuth ?? "",
                 config.credentials.username,
-                config.credentials.password,
-                config.credentials.privateKey,
+                config.credentials.password ?? "",
+                config.credentials.privateKey ?? "",
                 config.remoteAddress,
-                config.localAddress
+                config.localAddress,
+                &error
             )
+            if let error = error {
+                throw error
+            }
         }.value
     }
 }

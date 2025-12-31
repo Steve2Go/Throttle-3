@@ -67,22 +67,22 @@ class ConnectionManager: ObservableObject {
         currentServerID = server.id
         errorMessage = nil
         
-        if server.useTailscale {
-            // Wait for Tailscale connection
-            print("🔌 ConnectionManager: Waiting for Tailscale connection...")
-            await tailscaleManager.connect()
-            while !tailscaleManager.isConnected {
-                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-            }
-            print("✓ Tailscale connected")
-        } else{
-            await tailscaleManager.disconnect()
-        }
+//        if server.useTailscale {
+//            // Wait for Tailscale connection
+//            print("🔌 ConnectionManager: Waiting for Tailscale connection...")
+//            await tailscaleManager.connect()
+//            while !tailscaleManager.isConnected {
+//                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+//            }
+//            print("✓ Tailscale connected")
+//        } else{
+//            await tailscaleManager.disconnect()
+//        }
         
         print("🔌 ConnectionManager: Starting connection for server '\(server.name)' (ID: \(server.id))")
         
         // Clear all previous tunnel states to avoid port conflicts
-        tunnelManager.stopAllTunnels()
+//        tunnelManager.stopAllTunnels()
         print("✓ Cleared previous tunnel states")
         
         
@@ -137,10 +137,11 @@ class ConnectionManager: ObservableObject {
     func disconnect() {
         Task {
             tunnelManager.stopAllTunnels()
-            await tailscaleManager.disconnect()
+            //await tailscaleManager.disconnect()
             isConnected = false
             isConnecting = false
             currentServerID = nil
+            
             print("✓ ConnectionManager: All tunnels disconnected, state cleared")
         }
     }
@@ -148,9 +149,9 @@ class ConnectionManager: ObservableObject {
     // MARK: - Private Methods
     
     private func startWebTunnel(server: Servers) async {
-        if await tunnelManager.checkTunnelConnectivity(id: "web") {
-            return
-        }
+//        if await tunnelManager.checkTunnelConnectivity(id: "web") {
+//            return
+//        }
         
         // Check and install ffmpeg if needed (before starting tunnel)
         if !server.ffmpegInstalled {

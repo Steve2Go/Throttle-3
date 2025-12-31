@@ -30,27 +30,26 @@ struct TorrentRows: View {
     @AppStorage("currentStatusFilter") private var currentStatusFilter: String = "all"
     @State private var searchText: String = ""
     @State private var showServerList = false
-    @State private var torrents: [Torrent] = []
     @State private var isLoadingTorrents = false
     @State private var cancellables = Set<AnyCancellable>()
     @State private var visibleTorrentHashes: Set<String> = []
     @State private var thumbnailDebounceTask: Task<Void, Never>?
     @State private var showingTorrentDetails = false
     @State private var selectedTorrent: Torrent?
-    @Query private var servers: [Servers]
+    @Query var servers: [Servers]
     @State private var doFetch = false
     let keychain = Keychain(service: "com.srgim.throttle3")
     
     
-    // Get the current server based on the store's currentServerID
-    var currentServer: Servers? {
-        guard let currentServerID = store.currentServerID else { return nil }
-        return servers.first(where: { $0.id == currentServerID })
-    }
+     //Get the current server based on the store's currentServerID
+        var currentServer: Servers? {
+            guard let currentServerID = store.currentServerID else { return nil }
+            return servers.first(where: { $0.id == currentServerID })
+        }
     
     // Computed property for filtered and sorted torrents
     var filteredAndSortedTorrents: [Torrent] {
-        var result = torrents
+        var result = store.torrents
         
         // Apply search filter
         if !searchText.isEmpty {
@@ -107,182 +106,159 @@ struct TorrentRows: View {
     
     var body: some View {
         Group {
-            if tailscaleManager.isConnecting && torrents.isEmpty {
-                ContentUnavailableView (
-                    "Connecting Tailscale",
-                    image : "custom.circle.grid.3x3"
+            
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    ForEach(filteredAndSortedTorrents, id: \.hash) { torrent in
                         
-            )
-                .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.primary, .secondary)
-            }
-            else if (currentServer != nil) && torrents.isEmpty && (connectionManager.isConnecting || ((currentServer!.tunnelWebOverSSH || currentServer!.tunnelFilesOverSSH)) && !connectionManager.isConnected && ((currentServer?.useTailscale) != false && tailscaleManager.isConnected) || ((currentServer?.useTailscale) == false)) {
-                ContentUnavailableView (
-                    "Connecting SSH Tunnel",
-                    image : "custom.server.rack.shield"
-                        
-            )
-                .symbolEffect(.wiggle.clockwise.byLayer, options: .repeat(.periodic(delay: 0.5)))
-
-            } else if torrents.isEmpty && isLoadingTorrents {
-                ContentUnavailableView {
-                    Label("Fetching...", systemImage: "arrow.up.arrow.down.square")
-                        .symbolEffect(.bounce.up.byLayer, options: .repeat(.periodic(delay: 0.0)))
-                }
-            }  else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 8) {
-                        ForEach(filteredAndSortedTorrents, id: \.hash) { torrent in
-                       
-                                HStack {
-                                    // Thumbnail display
-                                    Group {
-                                        if let progress = torrent.progress, progress < 1.0 {
-                                            // Downloading
-                                            Image(systemName: "arrow.down.circle")
-                                                .font(.system(size: 40))
-                                                .foregroundStyle(.secondary)
-                                        } else if let thumbnail = thumbnailManager.getThumbnail(for: torrent) {
-                                            // Has cached thumbnail
-                                            #if os(macOS)
-                                            Image(nsImage: thumbnail)
-                                                .resizable()
-                                                .scaledToFill()
-                                            #else
-                                            Image(uiImage: thumbnail)
-                                                .resizable()
-                                                .scaledToFill()
-                                            #endif
-                                        } else {
-                                            // Complete but no thumbnail yet
-                                            Image("placeholder-black")
-                                                .font(.system(size: 40))
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    }
-                                    .frame(width: 70, height: 70)
-                                    .background(Color.secondary.opacity(0.1))
-                                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                                    .onAppear {
-                                        if let hash = torrent.hash {
-                                            visibleTorrentHashes.insert(hash)
-                                            scheduleThumbnailGeneration()
-                                        }
-                                    }
-                                    .onDisappear {
-                                        if let hash = torrent.hash {
-                                            visibleTorrentHashes.remove(hash)
-                                        }
-                                    }
-                                    
-                                    Button {
-                                        selectedTorrent = torrent
-                                        showingTorrentDetails = true
-                                    }
-                                    label:{
-                                        VStack (alignment: .leading) {
-                                            HStack {
-                                                Image(systemName: iconForStatus(torrent.status?.rawValue))
-                                                    .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive:  torrent.status?.rawValue == 2)
-                                                    .padding(.leading, 6)
-                                                    .foregroundStyle(.primary)
-                                                
-                                                Text(torrent.name ?? "Unknown")
-                                                    .padding(.leading, 0)
-                                                    .foregroundColor(.primary)
-                                            }
-                                            //status
-                                            switch torrent.status?.rawValue {
-                                            case 0:
-                                                ProgressView(value: torrent.progress)
-                                                    .tint(.red)
-                                            case 2:
-                                                ProgressView(value: torrent.progress)
-                                                    .tint(.yellow)
-                                            case 4:
-                                                ProgressView(value: torrent.progress)
-                                                    .tint(.blue)
-                                            case 6:
-                                                ProgressView(value: torrent.progress)
-                                                    .tint(.green)
-                    //                        case 6:
-                    //                            ProgressView(value: torrent.progress)
-                    //                                .tint(.orange)
-                                            default:
-                                                ProgressView(value: torrent.progress)
-                                                    .tint(.gray)
-                                            }
-                                            Text("Downloaded \(formatBytes(torrent.bytesValid ?? 0)) of \(formatBytes(torrent.size ?? 0))")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    }
-                                    .buttonStyle(.plain)
+                        HStack {
+                            // Thumbnail display
+                            Group {
+                                if let progress = torrent.progress, progress < 1.0 {
+                                    // Downloading
+                                    Image(systemName: "arrow.down.circle")
+                                        .font(.system(size: 40))
+                                        .foregroundStyle(.secondary)
+                                } else if let thumbnail = thumbnailManager.getThumbnail(for: torrent) {
+                                    // Has cached thumbnail
+#if os(macOS)
+                                    Image(nsImage: thumbnail)
+                                        .resizable()
+                                        .scaledToFill()
+#else
+                                    Image(uiImage: thumbnail)
+                                        .resizable()
+                                        .scaledToFill()
+#endif
+                                } else {
+                                    // Complete but no thumbnail yet
+                                    Image("placeholder-black")
+                                        .font(.system(size: 40))
+                                        .foregroundStyle(.secondary)
                                 }
                             }
-                        
+                            .frame(width: 70, height: 70)
+                            .background(Color.secondary.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .onAppear {
+                                if let hash = torrent.hash {
+                                    visibleTorrentHashes.insert(hash)
+                                    scheduleThumbnailGeneration()
+                                }
+                            }
+                            .onDisappear {
+                                if let hash = torrent.hash {
+                                    visibleTorrentHashes.remove(hash)
+                                }
+                            }
+                            
+                            Button {
+                                selectedTorrent = torrent
+                                showingTorrentDetails = true
+                            }
+                            label:{
+                                VStack (alignment: .leading) {
+                                    HStack {
+                                        Image(systemName: iconForStatus(torrent.status?.rawValue))
+                                            .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive:  torrent.status?.rawValue == 2)
+                                            .padding(.leading, 6)
+                                            .foregroundStyle(.primary)
+                                        
+                                        Text(torrent.name ?? "Unknown")
+                                            .padding(.leading, 0)
+                                            .foregroundColor(.primary)
+                                    }
+                                    //status
+                                    switch torrent.status?.rawValue {
+                                    case 0:
+                                        ProgressView(value: torrent.progress)
+                                            .tint(.red)
+                                    case 2:
+                                        ProgressView(value: torrent.progress)
+                                            .tint(.yellow)
+                                    case 4:
+                                        ProgressView(value: torrent.progress)
+                                            .tint(.blue)
+                                    case 6:
+                                        ProgressView(value: torrent.progress)
+                                            .tint(.green)
+                                        //                        case 6:
+                                        //                            ProgressView(value: torrent.progress)
+                                        //                                .tint(.orange)
+                                    default:
+                                        ProgressView(value: torrent.progress)
+                                            .tint(.gray)
+                                    }
+                                    Text("Downloaded \(formatBytes(torrent.bytesValid ?? 0)) of \(formatBytes(torrent.size ?? 0))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
-                    .padding()
+                    
                 }
-                .refreshable {
-                    Task {
-                        await fetchTorrents(doConnect: false)
-                    }
+                .padding()
+            }
+            .refreshable {
+                Task {
+                    await fetchTorrents()
                 }
             }
         }
+    
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
-               
-               if tailscaleManager.isConnecting  && !torrents.isEmpty {
-                   Button(action: {}) {
-                       Image("custom.circle.grid.3x3")
-                       .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
-                       .symbolRenderingMode(.hierarchical)
-                   }
-               } else if connectionManager.isConnecting && !torrents.isEmpty {
+                
+                if tailscaleManager.isConnecting  && !store.torrents.isEmpty {
+                    Button(action: {}) {
+                        Image("custom.circle.grid.3x3")
+                            .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
+                            .symbolRenderingMode(.hierarchical)
+                    }
+                } else if connectionManager.isConnecting && !store.torrents.isEmpty {
                     Button(action: {}) {
                         Image("custom.server.rack.shield")
                             .symbolEffect(.wiggle.clockwise.byLayer, options: .repeat(.periodic(delay: 0.5)))
                     }
-                } else if isLoadingTorrents && !torrents.isEmpty {
+                } else if isLoadingTorrents && !store.torrents.isEmpty {
                     Button(action: {}) {
                         Image(systemName: "arrow.up.arrow.down.square")
                             .symbolEffect(.bounce.up.byLayer, options: .repeat(.periodic(delay: 0.0)))
                     }
                 } else {
-                    #if os(macOS)
+#if os(macOS)
                     Button(action: {
                         Task {
-                            await fetchTorrents(doConnect: false)
+                            await fetchTorrents()
                         }
                     }) {
                         Image(systemName: "arrow.clockwise")
                             .symbolEffect(.rotate, options: .repeat(.periodic(delay: 0.5)), isActive: isLoadingTorrents)
                     }
-                    #endif
+#endif
                     
                 }
-                #if os(iOS)
-                    Menu {
-                        
-                        Button(action: {}) {
-                            Label("Add Torrent", systemImage: "plus")
-                        }
-                        
-                        Button(action: {
-                            // Create action
-                        }) {
-                            Label("Create Torrent", systemImage: "document.badge.plus")
-                        }
-                        
-                        
-                    } label: {
-                        Image(systemName: "plus")
+#if os(iOS)
+                Menu {
+                    
+                    Button(action: {}) {
+                        Label("Add Torrent", systemImage: "plus")
                     }
-                #endif
-            
+                    
+                    Button(action: {
+                        // Create action
+                    }) {
+                        Label("Create Torrent", systemImage: "document.badge.plus")
+                    }
+                    
+                    
+                } label: {
+                    Image(systemName: "plus")
+                }
+#endif
+                
                 Button(action: {
                     // Selection action
                 }) {
@@ -294,7 +270,7 @@ struct TorrentRows: View {
                     Image(systemName: "internaldrive")
                 }
             }
-            #if os(iOS)
+#if os(iOS)
             ToolbarItem {
                 
                 Button(action: {
@@ -304,7 +280,7 @@ struct TorrentRows: View {
                 }
             }
             
-            #endif
+#endif
             
             
             
@@ -312,104 +288,43 @@ struct TorrentRows: View {
         .sheet(isPresented: $showingTorrentDetails) {
             if let torrent = selectedTorrent {
                 TorrentDetailsView(torrent: torrent)
-                #if os(macOS)
-                .frame(minWidth: 400, minHeight: 710)
-                #endif
+#if os(macOS)
+                    .frame(minWidth: 400, minHeight: 710)
+#endif
             }
         }
         .navigationTitle(currentServer?.name ?? "")
-        #if os(iOS)
+#if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
-        #endif
+#endif
         .navigationBarBackButtonHidden(true)
-       
+    
         .searchable(text: $searchText)
 #if os(iOS)
         .applySearchToolbarBehaviorIfAvailable()
+#endif
 
-        .onChange(of: scenePhase) {
-            if scenePhase == .active {
+        .onChange(of: store.isConnected) {
+            if store.isConnected {
+                print("🔄 Server switch detected: \(String(describing: oldID)) -> \(String(describing: newID))")
+                
+                // Clear all state when switching servers
+                visibleTorrentHashes.removeAll()
+                cancellables.removeAll()
                 Task {
-                    await fetchTorrents()
-                    doFetch = true
-                    fetchTimer()
+                    fetchTorrents()
                 }
-            
-            }else{
-                doFetch = false
             }
         }
-        .onChange(of: networkMonitor.gateways){
-            if scenePhase == .active {
-                connectionManager.disconnect()
-            }
-        }
-        
-        #endif
 
-        .onAppear {
-            
-            Task {
-                await fetchTorrents()
-                doFetch = true
-                fetchTimer()
-            }
-            
-        }
-        .onDisappear {
-            doFetch = false
-        }
-        .onChange(of: store.currentServerID) { oldID, newID in
-            print("🔄 Server switch detected: \(String(describing: oldID)) -> \(String(describing: newID))")
-            
-            // Clear all state when switching servers
-            torrents = []
-            visibleTorrentHashes.removeAll()
-            cancellables.removeAll()
-            
-            Task {
-                // Disconnect from old server
-                connectionManager.disconnect()
-                
-                // Wait for disconnect to complete
-                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-                
-                // Wait for currentServerID to clear
-                while connectionManager.currentServerID != nil {
-                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-                }
-                
-                print("✓ Disconnected from old server, fetching from new server...")
-                if tailscaleManager.isConnected || (currentServer?.useTailscale == false) {
-                    await fetchTorrents()
-                }
-                
-            }
-        }
-        // .onChange(of: tailscaleManager.isConnected) { _, isConnected in
-        //     if isConnected {
-        //         Task {
-        //             await fetchTorrents()
-        //         }
-        //     }
-        // }
-    }
+}
     
     // MARK: - Fetch Torrents
     
-    func fetchTorrents(doConnect:Bool = true) async {
+    func fetchTorrents() async {
         guard let server = currentServer else {
             print("No server selected")
             return
-        }
-        
-        // Ensure we're not fetching torrents for a different server
-        if let connectedServerID = connectionManager.currentServerID,
-           connectedServerID != server.id {
-            print("⚠️ Connection mismatch: Connected to \(connectedServerID) but trying to fetch for \(server.id)")
-            print("   Disconnecting and reconnecting to correct server...")
-            connectionManager.disconnect()
-            try? await Task.sleep(nanoseconds: 500_000_000)
         }
         
         guard !isLoadingTorrents else {
@@ -421,32 +336,11 @@ struct TorrentRows: View {
         
         isLoadingTorrents = true
         defer { isLoadingTorrents = false }
-    
-        
-        if doConnect {
-            print("Connecting tunnels...")
-            await connectionManager.connect(server: server)
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-        }
         
         // Build Transmission URL
-        let scheme = server.usesSSL ? "https" : "http"
-        var host: String
-        var port: Int
-        
-        if server.tunnelWebOverSSH {
-            // Using SSH tunnel: connect to localhost on serverPort + 8000
-            host = "127.0.0.1"
-            port = (Int(server.serverPort) ?? 80) + 8000
-        } else if server.useTailscale {
-            // Using Tailscale: connect to server address with reverse proxy port
-            host = server.serverAddress
-            port = Int(server.reverseProxyPort) ?? (Int(server.serverPort) ?? 9091)
-        } else {
-            // Direct connection
-            host = server.serverAddress
-            port = Int(server.serverPort) ?? 9091
-        }
+        let scheme = "http"
+        let host = "127.0.0.1"
+        let port = (Int(server.serverPort) ?? 80) + 8000
         
         let urlString = "\(scheme)://\(host):\(port)\(server.rpcPath)"
         
@@ -464,7 +358,7 @@ struct TorrentRows: View {
 
         // Use Combine to async/await bridge
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            client.request(.torrents(properties: Torrent.PropertyKeys.allCases))
+            client.request(store.torrents(properties: Torrent.PropertyKeys.allCases))
                 .receive(on: DispatchQueue.main)
                 .sink(
                     receiveCompletion: { completion in
@@ -474,11 +368,12 @@ struct TorrentRows: View {
                         continuation.resume()
                     },
                     receiveValue: { fetchedTorrents in
-                        torrents = fetchedTorrents
+                        store.torrents = fetchedTorrents
                         print("✅ Fetched \(fetchedTorrents.count) torrents")
                     }
                 )
                 .store(in: &cancellables)
+            
         }
     }
     
@@ -498,17 +393,17 @@ struct TorrentRows: View {
             return "icloud"
         }
     }
-    private func fetchTimer() {
-        if !doFetch {
-            return
-        }
-        Task {
-            
-            try? await Task.sleep(nanoseconds: 20_000_000_000)
-            await fetchTorrents()
-            fetchTimer()
-        }
-        }
+//    private func fetchTimer() {
+//        if !doFetch {
+//            return
+//        }
+//        Task {
+//            await fetchTorrents()
+//            try? await Task.sleep(nanoseconds: 20_000_000_000)
+//            
+//            fetchTimer()
+//        }
+//        }
     
     private func formatBytes(_ bytes: Int64) -> String {
         let formatter = ByteCountFormatter()
@@ -536,7 +431,7 @@ struct TorrentRows: View {
         guard let server = currentServer else { return }
         
         // Get visible torrents
-        let visibleTorrents = torrents.filter { torrent in
+        let visibleTorrents = store.torrents.filter { torrent in
             guard let hash = torrent.hash else { return false }
             return visibleTorrentHashes.contains(hash)
         }
