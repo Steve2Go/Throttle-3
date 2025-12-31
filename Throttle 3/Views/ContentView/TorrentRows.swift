@@ -106,104 +106,115 @@ struct TorrentRows: View {
     
     var body: some View {
         Group {
-            
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 8) {
-                    ForEach(filteredAndSortedTorrents, id: \.hash) { torrent in
-                        
-                        HStack {
-                            // Thumbnail display
-                            Group {
-                                if let progress = torrent.progress, progress < 1.0 {
-                                    // Downloading
-                                    Image(systemName: "arrow.down.circle")
-                                        .font(.system(size: 40))
-                                        .foregroundStyle(.secondary)
-                                } else if let thumbnail = thumbnailManager.getThumbnail(for: torrent) {
-                                    // Has cached thumbnail
-#if os(macOS)
-                                    Image(nsImage: thumbnail)
-                                        .resizable()
-                                        .scaledToFill()
-#else
-                                    Image(uiImage: thumbnail)
-                                        .resizable()
-                                        .scaledToFill()
-#endif
-                                } else {
-                                    // Complete but no thumbnail yet
-                                    Image("placeholder-black")
-                                        .font(.system(size: 40))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .frame(width: 70, height: 70)
-                            .background(Color.secondary.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .onAppear {
-                                if let hash = torrent.hash {
-                                    visibleTorrentHashes.insert(hash)
-                                    scheduleThumbnailGeneration()
-                                }
-                            }
-                            .onDisappear {
-                                if let hash = torrent.hash {
-                                    visibleTorrentHashes.remove(hash)
-                                }
-                            }
-                            
-                            Button {
-                                selectedTorrent = torrent
-                                showingTorrentDetails = true
-                            }
-                            label:{
-                                VStack (alignment: .leading) {
-                                    HStack {
-                                        Image(systemName: iconForStatus(torrent.status?.rawValue))
-                                            .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive:  torrent.status?.rawValue == 2)
-                                            .padding(.leading, 6)
-                                            .foregroundStyle(.primary)
-                                        
-                                        Text(torrent.name ?? "Unknown")
-                                            .padding(.leading, 0)
-                                            .foregroundColor(.primary)
-                                    }
-                                    //status
-                                    switch torrent.status?.rawValue {
-                                    case 0:
-                                        ProgressView(value: torrent.progress)
-                                            .tint(.red)
-                                    case 2:
-                                        ProgressView(value: torrent.progress)
-                                            .tint(.yellow)
-                                    case 4:
-                                        ProgressView(value: torrent.progress)
-                                            .tint(.blue)
-                                    case 6:
-                                        ProgressView(value: torrent.progress)
-                                            .tint(.green)
-                                        //                        case 6:
-                                        //                            ProgressView(value: torrent.progress)
-                                        //                                .tint(.orange)
-                                    default:
-                                        ProgressView(value: torrent.progress)
-                                            .tint(.gray)
-                                    }
-                                    Text("Downloaded \(formatBytes(torrent.bytesValid ?? 0)) of \(formatBytes(torrent.size ?? 0))")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    
+            if store.torrents.isEmpty {
+                ContentUnavailableView {
+                    Label("Loading", systemImage: "arrow.trianglehead.clockwise")
+                        .symbolEffect(.rotate.byLayer, options: .repeat(.periodic(delay: 0.5)))
+                } description: {
+                    Text("Your downloads will appear in a moment")
                 }
-                .padding()
-            }
-            .refreshable {
-                Task {
-                    await fetchTorrents()
+                
+                    
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 8) {
+                        ForEach(filteredAndSortedTorrents, id: \.hash) { torrent in
+                            
+                            HStack {
+                                // Thumbnail display
+                                Group {
+                                    if let progress = torrent.progress, progress < 1.0 {
+                                        // Downloading
+                                        Image(systemName: "arrow.down.circle")
+                                            .font(.system(size: 40))
+                                            .foregroundStyle(.secondary)
+                                    } else if let thumbnail = thumbnailManager.getThumbnail(for: torrent) {
+                                        // Has cached thumbnail
+#if os(macOS)
+                                        Image(nsImage: thumbnail)
+                                            .resizable()
+                                            .scaledToFill()
+#else
+                                        Image(uiImage: thumbnail)
+                                            .resizable()
+                                            .scaledToFill()
+#endif
+                                    } else {
+                                        // Complete but no thumbnail yet
+                                        Image("placeholder-black")
+                                            .font(.system(size: 40))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .frame(width: 70, height: 70)
+                                .background(Color.secondary.opacity(0.1))
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                .onAppear {
+                                    if let hash = torrent.hash {
+                                        visibleTorrentHashes.insert(hash)
+                                        scheduleThumbnailGeneration()
+                                    }
+                                }
+                                .onDisappear {
+                                    if let hash = torrent.hash {
+                                        visibleTorrentHashes.remove(hash)
+                                    }
+                                }
+                                
+                                Button {
+                                    selectedTorrent = torrent
+                                    showingTorrentDetails = true
+                                }
+                                label:{
+                                    VStack (alignment: .leading) {
+                                        HStack {
+                                            Image(systemName: iconForStatus(torrent.status?.rawValue))
+                                                .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive:  torrent.status?.rawValue == 2)
+                                                .padding(.leading, 6)
+                                                .foregroundStyle(.primary)
+                                            
+                                            Text(torrent.name ?? "Unknown")
+                                                .padding(.leading, 0)
+                                                .foregroundColor(.primary)
+                                        }
+                                        //status
+                                        switch torrent.status?.rawValue {
+                                        case 0:
+                                            ProgressView(value: torrent.progress)
+                                                .tint(.red)
+                                        case 2:
+                                            ProgressView(value: torrent.progress)
+                                                .tint(.yellow)
+                                        case 4:
+                                            ProgressView(value: torrent.progress)
+                                                .tint(.blue)
+                                        case 6:
+                                            ProgressView(value: torrent.progress)
+                                                .tint(.green)
+                                            //                        case 6:
+                                            //                            ProgressView(value: torrent.progress)
+                                            //                                .tint(.orange)
+                                        default:
+                                            ProgressView(value: torrent.progress)
+                                                .tint(.gray)
+                                        }
+                                        Text("Downloaded \(formatBytes(torrent.bytesValid ?? 0)) of \(formatBytes(torrent.size ?? 0))")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        
+                    }
+                    .padding()
+                }
+                .refreshable {
+                    Task {
+                        store.torrents = []
+                        await fetchTorrents()
+                    }
                 }
             }
         }
@@ -211,18 +222,18 @@ struct TorrentRows: View {
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
                 
-                if tailscaleManager.isConnecting  && !store.torrents.isEmpty {
+                if tailscaleManager.isConnecting {
                     Button(action: {}) {
                         Image("custom.circle.grid.3x3")
                             .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
                             .symbolRenderingMode(.hierarchical)
                     }
-                } else if connectionManager.isConnecting && !store.torrents.isEmpty {
+                } else if connectionManager.isConnecting {
                     Button(action: {}) {
                         Image("custom.server.rack.shield")
                             .symbolEffect(.wiggle.clockwise.byLayer, options: .repeat(.periodic(delay: 0.5)))
                     }
-                } else if isLoadingTorrents && !store.torrents.isEmpty {
+                } else if isLoadingTorrents {
                     Button(action: {}) {
                         Image(systemName: "arrow.up.arrow.down.square")
                             .symbolEffect(.bounce.up.byLayer, options: .repeat(.periodic(delay: 0.0)))
@@ -231,6 +242,7 @@ struct TorrentRows: View {
 #if os(macOS)
                     Button(action: {
                         Task {
+                            store.torrents = []
                             await fetchTorrents()
                         }
                     }) {
@@ -310,9 +322,6 @@ struct TorrentRows: View {
         }
         .onChange(of: store.isConnected) {
             if store.isConnected {
-                
-                // Clear all state when switching servers
-
                 Task {
                     await fetchTorrents()
                 }

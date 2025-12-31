@@ -117,7 +117,7 @@ struct Throttle_3App: App {
                     }
             
                     .onChange(of: store.currentServerID) { oldID, newID in
-                       
+                        store.torrents = []
                         store.isConnected = false
             
                         Task {
@@ -131,7 +131,8 @@ struct Throttle_3App: App {
                             while connectionManager.currentServerID != nil {
                                 try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
                             }
-            
+                            
+                            connectServer()
             
                         }
                     }
@@ -141,6 +142,10 @@ struct Throttle_3App: App {
                     if scenePhase == .active {
                         connectWithTailscale()
                     } else{
+                        connectionManager.disconnect()
+                        Task {
+                           await TSmanager.disconnect()
+                        }
                         store.isConnected = false
                     }
                 }
@@ -184,13 +189,19 @@ struct Throttle_3App: App {
     }
     
     private func connectServer(){
-        if (store.currentServerID != nil), let currentServer = servers.first(where: { $0.id == store.currentServerID }){
-            connectionManager.disconnect()
-            Task {
-                try? await Task.sleep(nanoseconds: 500_000_000) // .5 second after last activity
-                await connectionManager.connect(server: currentServer)
-                store.isConnected = true
-            }
+        // Fetch servers from model context
+        let descriptor = FetchDescriptor<Servers>()
+        guard let servers = try? sharedModelContainer.mainContext.fetch(descriptor),
+              let currentServerID = store.currentServerID,
+              let currentServer = servers.first(where: { $0.id == currentServerID }) else {
+            return
+        }
+        
+        connectionManager.disconnect()
+        Task {
+            try? await Task.sleep(nanoseconds: 500_000_000) // .5 second after last activity
+            await connectionManager.connect(server: currentServer)
+            store.isConnected = true
         }
     }
     
