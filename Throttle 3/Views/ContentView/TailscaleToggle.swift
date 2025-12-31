@@ -12,59 +12,69 @@ struct TailscaleToggle: View {
     @AppStorage("TailscaleEnabled") private var tailscaleEnabled = false
     
     #if os(iOS)
-    var label: String = "Connect Over Tailscale"
+    var label: String = "Connection Status"
     #else
-    var label: String = "Managed Tailscale Connection"
+    var label: String = "Connect to Tailscale"
     #endif
     var body: some View {
         List {
             Section("Tailscale") {
                 HStack {
-                Toggle(label, isOn: Binding(
-                    get: { tailscaleEnabled },
-                    set: { enabled in
-                        tailscaleEnabled = enabled
-//                        Task {
-//                            if enabled {
-//                                await manager.connect()
-//                            } else {
-//                                await manager.disconnect()
-//                            }
-//                        }
+                    if manager.isConnecting {
+                        HStack {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("Connecting...")
+                                .foregroundStyle(.secondary)
+                        }
+                    } else if manager.isConnected {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                            Text("Connected")
+                        }
+                    } else if let error = manager.errorMessage {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                            Text(error)
+                                .foregroundStyle(.secondary)
+                                .font(.caption)
+                        }
                     }
-                ))
-                .disabled(manager.isConnecting)
-                #if os(iOS)
-                Button("Reset") {
-                    Task{
-                        await manager.clear()
+                    
+                    //                Toggle(label, isOn: Binding(
+                    //                    get: { tailscaleEnabled },
+                    //                    set: { enabled in
+                    //                        tailscaleEnabled = enabled
+                    ////                        Task {
+                    ////                            if enabled {
+                    ////                                await manager.connect()
+                    ////                            } else {
+                    ////                                await manager.disconnect()
+                    ////                            }
+                    ////                        }
+                    //                    }
+                    //                ))
+                    //.disabled(manager.isConnecting)
+#if os(iOS)
+                    Button("Reset") {
+                        Task{
+                            await manager.clear()
+                        }
                     }
+#endif
                 }
-                #endif
-            }
+#if os(macOS)
                 
-                if manager.isConnecting {
-                    HStack {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                        Text("Connecting...")
-                            .foregroundStyle(.secondary)
-                    }
-                } else if manager.isConnected {
-                    HStack {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                        Text("Connected")
-                    }
-                } else if let error = manager.errorMessage {
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
-                        Text(error)
-                            .foregroundStyle(.secondary)
-                            .font(.caption)
-                    }
-                }
+                Toggle(label, isOn: Binding(
+                                        get: { tailscaleEnabled },
+                                        set: { enabled in
+                                            tailscaleEnabled = enabled
+            }))
+#endif
+                
+                
             }
         }
         .scrollContentBackground(.hidden)
