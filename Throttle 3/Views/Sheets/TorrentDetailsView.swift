@@ -39,6 +39,9 @@ struct TorrentDetailsView: View {
                         dismiss()
                     }
                 }
+                ToolbarItem(placement: .primaryAction ) {
+                    torrentMenu(torrentID: torrent.id!, stopped: torrent.status?.rawValue == 0 ? true : false)
+                }
             }
         }
     }

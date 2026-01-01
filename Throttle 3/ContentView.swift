@@ -15,6 +15,7 @@ struct ContentView: View {
     @AppStorage("selectedServerUUID") private var selectedServerUUID: String = ""
     @AppStorage("currentFilter") private var currentFilter: String = "dateAdded"
     @AppStorage("currentStatusFilter") private var currentStatusFilter: String = "all"
+    
     @EnvironmentObject var store: Store
 
     @ObservedObject private var tailscaleManager = TailscaleManager.shared
@@ -244,7 +245,7 @@ store.navigationTrigger = store.currentServerID
 
                            Button(
                             action: {
-                                store.showAddServer = true
+                                store.showSettings = true
                             },
                             label: {
                                 Image(systemName: "gearshape")
@@ -299,6 +300,9 @@ store.navigationTrigger = store.currentServerID
         
         .sheet(isPresented: $store.showAddServer) {
             ServerView()
+        }
+        .sheet(isPresented: $store.showSettings) {
+            SettingsView()
         }
     }
 }

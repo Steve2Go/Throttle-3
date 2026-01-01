@@ -38,6 +38,7 @@ struct TorrentRows: View {
     @State private var selectedTorrent: Torrent?
     @Query var servers: [Servers]
     @State private var doFetch = false
+    @AppStorage("refreshRate") var refreshRate = "30"
     let keychain = Keychain(service: "com.srgim.throttle3")
     
     
@@ -204,6 +205,7 @@ struct TorrentRows: View {
                                     }
                                 }
                                 .buttonStyle(.plain)
+                                torrentMenu(torrentID: torrent.id!, stopped: torrent.status?.rawValue == 0 ? true : false)
                             }
                         }
                         
@@ -312,13 +314,14 @@ struct TorrentRows: View {
         .navigationBarBackButtonHidden(true)
     
         .searchable(text: $searchText)
-#if os(iOS)
-        .applySearchToolbarBehaviorIfAvailable()
-#endif
+//#if os(iOS)
+//       // .applySearchToolbarBehaviorIfAvailable()
+//#endif
         .onChange(of: store.currentServerID){
             store.torrents = []
             visibleTorrentHashes.removeAll()
             cancellables.removeAll()
+            doFetch = false
         }
         .onChange(of: store.isConnected) {
             if store.isConnected {
@@ -381,6 +384,8 @@ struct TorrentRows: View {
                     receiveValue: { (fetchedTorrents: [Torrent]) in
                         store.torrents = fetchedTorrents
                         print("✅ Fetched \(fetchedTorrents.count) torrents")
+                        doFetch = true
+                        fetchTimer()
                     }
                 )
                 .store(in: &cancellables)
@@ -404,17 +409,17 @@ struct TorrentRows: View {
             return "icloud"
         }
     }
-//    private func fetchTimer() {
-//        if !doFetch {
-//            return
-//        }
-//        Task {
-//            await fetchTorrents()
-//            try? await Task.sleep(nanoseconds: 20_000_000_000)
-//            
-//            fetchTimer()
-//        }
-//        }
+    private func fetchTimer() {
+        if !doFetch {
+            return
+        }
+        Task {
+            await fetchTorrents()
+            if let rr = Double(refreshRate) {
+                try? await Task.sleep(for: .seconds(rr))
+            }
+        }
+        }
     
     private func formatBytes(_ bytes: Int64) -> String {
         let formatter = ByteCountFormatter()
@@ -488,3 +493,61 @@ extension View {
     }
 }
 #endif
+
+
+struct torrentMenu: View {
+    let torrentID: Int
+    let stopped: Bool
+    var body: some View {
+        Menu {
+            Button {
+                
+            } label: {
+                Label("Files", image:"custom.folder.badge.arrow.down")
+                    .symbolRenderingMode(.monochrome)
+            }
+            Button {
+                
+            } label: {
+                Label("Verify", systemImage: "arrow.trianglehead.clockwise.icloud")
+                    .symbolRenderingMode(.monochrome)
+            }
+            
+            if stopped {
+                Button {
+                    
+                } label: {
+                    Label("Start", systemImage: "play")
+                        .symbolRenderingMode(.monochrome)
+                }
+            } else {
+                
+                Button {
+                    
+                } label: {
+                    Label("Announce", systemImage: "megaphone")
+                        .symbolRenderingMode(.monochrome)
+                }
+                
+                Button {
+                    
+                } label: {
+                    Label("Stop", systemImage: "stop")
+                        .symbolRenderingMode(.monochrome)
+                }
+            }
+            Button {
+                
+            } label: {
+                Label("Rename", systemImage: "dots.and.line.vertical.and.cursorarrow.rectangle")
+                    .symbolRenderingMode(.monochrome)
+            }
+            
+            
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                
+        }.foregroundStyle(.primary)
+    }
+    
+}

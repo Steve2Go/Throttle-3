@@ -12,6 +12,7 @@ struct ServerList: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var servers: [Servers]
     @AppStorage("selectedServerUUID") private var selectedServerUUID: String = ""
+    @AppStorage("onStartServer") private var onstartServer: String = ""
     @State private var editingServer: Servers?
     @EnvironmentObject var store: Store
     //@Binding var columnVisibility: NavigationSplitViewVisibility
@@ -39,7 +40,7 @@ struct ServerList: View {
                                 ConnectionManager.shared.disconnect()
                                 selectedServerUUID = server.id.uuidString
                                 store.currentServerID = server.id
-                                navigationTrigger = server.id
+                                store.navigationTrigger = server.id
                             }
                             #endif
                         } label: {
@@ -90,13 +91,24 @@ struct ServerList: View {
                 hasAppeared = true
                 #endif
                 
-                if !selectedServerUUID.isEmpty && !store.didLoad,
-                   let uuid = UUID(uuidString: selectedServerUUID),
-                   servers.contains(where: { $0.id == uuid }) {
-                    store.didLoad = true
-                    store.navigationTrigger = uuid
-                    store.currentServerID = uuid
+                
+                //auto connect
+                var uuid: UUID?
+                if !store.didLoad {
+                    if !onstartServer.isEmpty {
+                        uuid = UUID(uuidString: onstartServer)
+                    } else if !selectedServerUUID.isEmpty {
+                        uuid = UUID(uuidString: selectedServerUUID)
+                    }
+                    if uuid != nil,
+                       servers.contains(where: { $0.id == uuid }) {
+                        store.didLoad = true
+                        store.navigationTrigger = uuid
+                        store.currentServerID = uuid
+                    }
                 }
+                
+               
             }
             #if os(macOS)
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in

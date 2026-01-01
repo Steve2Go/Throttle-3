@@ -11,7 +11,7 @@ struct BasicSettings: View {
     @AppStorage("syncKeychain") var syncKeychain = true
     @AppStorage("syncServers") var syncServers = true
     @AppStorage("syncLocalServers") var syncLocalServers = true
-    @AppStorage("syncSettings") var syncSettings = true
+    //@AppStorage("syncSettings") var syncSettings = true
     
     var body: some View {
         List {
@@ -22,7 +22,7 @@ struct BasicSettings: View {
                 Toggle("Sync Local Server", isOn: $syncLocalServers)
                 #endif
                 Toggle("Sync Authentication", isOn: $syncKeychain)
-                Toggle("Sync Settings", isOn: $syncSettings)
+                //Toggle("Sync Settings", isOn: $syncSettings)
             }
         }
         .scrollContentBackground(.hidden)

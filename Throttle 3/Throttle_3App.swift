@@ -24,8 +24,9 @@ struct Throttle_3App: App {
     @AppStorage("instance") var instance: String = UUID().uuidString
     @AppStorage("TailscaleEnabled") var tailscaleEnabled = false
     @AppStorage("ServerToStart") var ServerToStart: String?
+    
      @Environment(\.modelContext) private var modelContext
-    @Query var servers: [Servers]
+ 
     @ObservedObject private var TSmanager = TailscaleManager.shared
     @StateObject var networkMonitor = NetworkMonitor()
     @StateObject private var store = Store()
@@ -33,6 +34,7 @@ struct Throttle_3App: App {
     
     @State private var hasCompletedInitialSync = false
     @State private var containerRefreshTrigger = 0
+    @State private var disconnectTask: Task<Void, Never>?
     
     private static var _sharedModelContainer: ModelContainer?
     private static let containerLock = NSLock()
@@ -140,13 +142,19 @@ struct Throttle_3App: App {
                 .onChange(of: scenePhase) {
                     ///opened from BG
                     if scenePhase == .active {
+                        //disconnectTask?.cancel()
                         connectWithTailscale()
-                    } else{
-                        connectionManager.disconnect()
+                    } else {
                         Task {
-                           await TSmanager.disconnect()
+                            connectionManager.disconnect()
+                            await TSmanager.disconnect()
+                            store.isConnected = false
                         }
-                        store.isConnected = false
+//                        disconnectTask = Task {
+//                            try? await Task.sleep(nanoseconds: 10_000_000_000)
+//                            guard !Task.isCancelled else { return }
+//                            
+//                        }
                     }
                 }
                 .onChange(of: networkMonitor.gateways) {
@@ -163,6 +171,9 @@ struct Throttle_3App: App {
                 #if os(macOS)
  .commands {
                         CommandGroup(replacing: .appSettings) {
+                            Button("Settings") {
+                                store.showSettings = true
+                            }.keyboardShortcut(",", modifiers: [.command])
                         Button("Tailscale") {
                             store.showTailscaleSheet = true
                         }
@@ -177,15 +188,20 @@ struct Throttle_3App: App {
     }
     
     private func connectWithTailscale() {
-        if tailscaleEnabled {
+        // Check if any server has Tailscale enabled
+        let descriptor = FetchDescriptor<Servers>()
+        let servers = try? sharedModelContainer.mainContext.fetch(descriptor)
+        let hasTailscaleServer = servers?.contains(where: { $0.useTailscale }) ?? false
+        
+        if hasTailscaleServer && !TSmanager.isConnected && !TSmanager.isConnecting {
             Task {
                 await TSmanager.connect()
             }
-        
-        } else{
-            connectServer()
+        } else {
+            if !TSmanager.isConnecting {
+                connectServer()
+            }
         }
-        
     }
     
     private func connectServer(){
@@ -199,8 +215,9 @@ struct Throttle_3App: App {
         
         connectionManager.disconnect()
         Task {
-            try? await Task.sleep(nanoseconds: 500_000_000) // .5 second after last activity
+            //try? await Task.sleep(nanoseconds: 500_000_000) // .5 second after last activity
             await connectionManager.connect(server: currentServer)
+            try? await Task.sleep(nanoseconds: 500_000_000) // .5 second after last activity
             store.isConnected = true
         }
     }

@@ -25,7 +25,7 @@ struct ServerView: View {
     @State private var sshPassword: String = ""
     @State private var showingKeyFilePicker = false
     @State private var showingDeleteAlert = false
-    //var tailscaleManager = TailscaleManager.shared
+    var tailscaleManager = TailscaleManager.shared
     
     init(server: Servers? = nil) {
         if let server = server {
@@ -68,11 +68,13 @@ struct ServerView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Toggle("Tunnel Over Tailscale", isOn: $server.useTailscale)
-//                    .onChange(of: server.useTailscale) { oldValue, newValue in
-//                        Task {
-//                            await tailscaleManager.disconnect()
-//                        }
-//                    }
+                   .onChange(of: server.useTailscale) { oldValue, newValue in
+                   if newValue {
+                       Task {
+                           await tailscaleManager.connect()
+                       }
+                   }
+                   }
                 TextField("Username", text: $server.user)
                     .textContentType(.username)
 #if os(iOS)
