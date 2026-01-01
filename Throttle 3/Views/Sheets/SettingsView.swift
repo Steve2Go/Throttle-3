@@ -26,6 +26,7 @@ struct SettingsView: View {
     @AppStorage("syncServers") var syncServers = true
     @AppStorage("syncLocalServers") var syncLocalServers = true
     @AppStorage("onStartServer") var onstartServer = ""
+    @AppStorage("chooseFiles") var chooseFiles = false
     
     
     var body: some View {
@@ -38,6 +39,7 @@ struct SettingsView: View {
                             Text(server.name).tag(String?.some(server.id.uuidString))
                         }
                     }
+                    Toggle("Choose Files when Adding", isOn: $chooseFiles)
                     HStack {
                         #if os(iOS)
                         Text("Refresh Rate:")

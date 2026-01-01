@@ -199,13 +199,35 @@ struct TorrentRows: View {
                                             ProgressView(value: torrent.progress)
                                                 .tint(.gray)
                                         }
-                                        Text("Downloaded \(formatBytes(torrent.bytesValid ?? 0)) of \(formatBytes(torrent.size ?? 0))")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
+                                        HStack {
+                                            if torrent.progress == 1{
+                                                Text("\(formatBytes(torrent.size ?? 0))")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            } else {
+                                                Text("\(formatBytes(torrent.bytesValid ?? 0)) of \(formatBytes(torrent.size ?? 0))")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                            Spacer()
+                                            Text("added")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
                                     }
                                 }
                                 .buttonStyle(.plain)
-                                torrentMenu(torrentID: torrent.id!, stopped: torrent.status?.rawValue == 0 ? true : false)
+                                VStack {
+                                    torrentMenu(torrentID: torrent.id!, stopped: torrent.status?.rawValue == 0 ? true : false)
+                                        .buttonStyle(.plain)
+                                        .padding(.bottom,10)
+                                    Button {
+                                        
+                                    } label: {
+                                        Image(systemName: "star")
+                                    } .foregroundStyle(.primary)
+                                        .buttonStyle(.plain)
+                                }
                             }
                         }
                         
@@ -272,12 +294,6 @@ struct TorrentRows: View {
                     Image(systemName: "plus")
                 }
 #endif
-                
-                Button(action: {
-                    // Selection action
-                }) {
-                    Label("Selection", systemImage: "checkmark.square")
-                }
                 
                 
                 Button(action: {}) {
@@ -509,7 +525,7 @@ struct torrentMenu: View {
             Button {
                 
             } label: {
-                Label("Verify", systemImage: "arrow.trianglehead.clockwise.icloud")
+                Label("Verify", image: "custom.folder.badge.magnifyingglass")
                     .symbolRenderingMode(.monochrome)
             }
             
@@ -542,12 +558,20 @@ struct torrentMenu: View {
                 Label("Rename", systemImage: "dots.and.line.vertical.and.cursorarrow.rectangle")
                     .symbolRenderingMode(.monochrome)
             }
-            
+            Button {
+                
+            } label: {
+                Label("Delete", systemImage: "trash")
+                    .symbolRenderingMode(.monochrome)
+            }
             
         } label: {
+
             Image(systemName: "ellipsis.circle")
                 
-        }.foregroundStyle(.primary)
+        }
+        .foregroundStyle(.primary)
+        
     }
     
 }

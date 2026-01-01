@@ -185,7 +185,7 @@ store.navigationTrigger = store.currentServerID
                         }) {
                             HStack {
                                 Image(systemName: currentStatusFilter == "paused" ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
-                                Text("Paused")
+                                Text("Stopped")
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .padding(.horizontal)
