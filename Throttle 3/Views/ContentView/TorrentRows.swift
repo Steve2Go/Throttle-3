@@ -140,7 +140,7 @@ struct TorrentRows: View {
                                             .resizable()
                                             .scaledToFill()
 #endif
-                                    } else {
+                                    }  else {
                                         // Complete but no thumbnail yet
                                         Image("placeholder-black")
                                             .font(.system(size: 40))
@@ -164,14 +164,15 @@ struct TorrentRows: View {
                                         visibleTorrentHashes.remove(hash)
                                     }
                                 }
-                                Image(systemName: iconForStatus(torrent))
+                                Image(systemName: thumbnailManager.generatingHashes.contains(torrent.hash ?? "") ? "photo.badge.arrow.down" : iconForStatus(torrent))
                                     .font(.system(size: 12, weight: .semibold))
-                                    .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive:  torrent.status?.rawValue == 2)
                                     .foregroundStyle(.white)
                                     .padding(5)
                                     .background(Circle().fill(.tint))
                                     .padding(.leading, -29)
                                     .padding(.top, 40)
+                                    .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive: torrent.status?.rawValue == 2)
+                                    .symbolEffect(.bounce.up.byLayer, options: .repeat(.periodic(delay: 0.0)), isActive: torrent.status?.rawValue != 2 && thumbnailManager.generatingHashes.contains(torrent.hash ?? ""))
                                 
                                 Button {
                                     selectedTorrent = torrent

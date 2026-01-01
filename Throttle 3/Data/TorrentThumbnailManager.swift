@@ -28,6 +28,7 @@ class TorrentThumbnailManager: ObservableObject {
     
     @Published private(set) var thumbnails: [String: PlatformImage] = [:]
     @Published private(set) var isGenerating = false
+    @Published private(set) var generatingHashes: Set<String> = []
     
     private let sshManager = SSHManager.shared
     private let sftpManager = SFTPManager.shared
@@ -101,24 +102,27 @@ class TorrentThumbnailManager: ObservableObject {
         guard !torrentsNeedingThumbs.isEmpty else { return }
         
         isGenerating = true
-        defer { isGenerating = false }
+        // Add all hashes to generatingHashes
+        let hashes = Set(torrentsNeedingThumbs.compactMap { $0.hash })
+        generatingHashes.formUnion(hashes)
+        defer { 
+            isGenerating = false
+            // Remove all hashes from generatingHashes
+            generatingHashes.subtract(hashes)
+        }
         
         print("🎬 Generating \(torrentsNeedingThumbs.count) thumbnails...")
         
-        // Run generation in background task
-        await Task.detached(priority: .utility) { [weak self] in
-            guard let self = self else { return }
-            
-            do {
-                try await self.generateThumbnailsBatch(
-                    torrents: torrentsNeedingThumbs,
-                    server: server,
-                    downloadDir: downloadDir
-                )
-            } catch {
-                print("❌ Thumbnail generation failed: \(error)")
-            }
-        }.value
+        // Run generation directly (not detached) so UI updates happen in real-time
+        do {
+            try await generateThumbnailsBatch(
+                torrents: torrentsNeedingThumbs,
+                server: server,
+                downloadDir: downloadDir
+            )
+        } catch {
+            print("❌ Thumbnail generation failed: \(error)")
+        }
     }
     
     // MARK: - Private Methods
@@ -151,20 +155,16 @@ class TorrentThumbnailManager: ObservableObject {
                 print("📄 Non-media torrent \(torrent.name ?? hash), assigning file type icon")
                 nonMediaTorrents.append(torrent)
                 
-                // Load asset icon immediately
+                // Load asset icon immediately on main actor
                 await MainActor.run {
                     let iconName = getFileTypeIconFromFiles(files: files)
                     #if os(macOS)
                     if let image = NSImage(named: iconName) {
-                        Task { @MainActor in
-                            self.thumbnails[hash] = image
-                        }
+                        self.thumbnails[hash] = image
                     }
                     #else
                     if let image = UIImage(named: iconName) {
-                        Task { @MainActor in
-                            self.thumbnails[hash] = image
-                        }
+                        self.thumbnails[hash] = image
                     }
                     #endif
                 }
@@ -239,8 +239,8 @@ class TorrentThumbnailManager: ObservableObject {
                     localPath: localURL.path
                 )
                 
-                // Load into memory cache (defer to avoid publishing during view updates)
-                Task { @MainActor in
+                // Load into memory cache immediately on main actor
+                await MainActor.run {
                     #if os(macOS)
                     if let image = NSImage(contentsOf: localURL) {
                         self.thumbnails[hash] = image
