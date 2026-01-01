@@ -200,20 +200,27 @@ struct TorrentDetailsView: View {
                     // Date column
                     VStack(alignment: .leading, spacing: 8) {
                         if let dateAdded = torrent.dateAdded {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Image(systemName: "calendar.badge.plus")
-                                        .foregroundStyle(.secondary)
-                                        .frame(width: 20)
-                                    
-                                    Text("Added On")
-                                        .foregroundStyle(.secondary)
-                                    
-                                    }
-                                    
-                                    Text(formatDate(dateAdded))
-                                        .font(.caption)
-                                }
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                InfoRow(
+                                    label: "Added",
+                                    value: "",
+                                    icon: "plus.app"
+                                )
+                                
+                                InfoRow(
+                                    label: "Date",
+                                    value: "\(formatDate(dateAdded))",
+                                    icon: "clock"
+                                )
+                                
+                                InfoRow(
+                                    label: "Time",
+                                    value: "\(formatTime(dateAdded))",
+                                    icon: "calendar"
+                                )
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             
                            
                         }
@@ -339,6 +346,13 @@ struct TorrentDetailsView: View {
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
         formatter.timeStyle = .short
         return formatter.string(from: date)
     }

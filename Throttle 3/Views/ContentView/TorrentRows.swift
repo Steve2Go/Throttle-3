@@ -123,12 +123,12 @@ struct TorrentRows: View {
                             
                             HStack {
                                 // Thumbnail display
-                                Group {
+                                HStack{
                                     if let progress = torrent.progress, progress < 1.0 {
                                         // Downloading
-                                        Image(systemName: "arrow.down.circle")
-                                            .font(.system(size: 40))
-                                            .foregroundStyle(.secondary)
+                                        Image("folder")
+                                            .resizable()
+                                            .frame(maxWidth: 55,maxHeight:55)
                                     } else if let thumbnail = thumbnailManager.getThumbnail(for: torrent) {
                                         // Has cached thumbnail
 #if os(macOS)
@@ -144,11 +144,14 @@ struct TorrentRows: View {
                                         // Complete but no thumbnail yet
                                         Image("placeholder-black")
                                             .font(.system(size: 40))
-                                            .foregroundStyle(.secondary)
                                     }
+                                    
+                                    //status icon
+                                    
+                                   
                                 }
                                 .frame(width: 70, height: 70)
-                                .background(Color.secondary.opacity(0.1))
+                                //.background(Color.secondary.opacity(0.1))
                                 .clipShape(RoundedRectangle(cornerRadius: 6))
                                 .onAppear {
                                     if let hash = torrent.hash {
@@ -161,6 +164,14 @@ struct TorrentRows: View {
                                         visibleTorrentHashes.remove(hash)
                                     }
                                 }
+                                Image(systemName: iconForStatus(torrent))
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive:  torrent.status?.rawValue == 2)
+                                    .foregroundStyle(.white)
+                                    .padding(5)
+                                    .background(Circle().fill(.tint))
+                                    .padding(.leading, -29)
+                                    .padding(.top, 40)
                                 
                                 Button {
                                     selectedTorrent = torrent
@@ -168,16 +179,11 @@ struct TorrentRows: View {
                                 }
                                 label:{
                                     VStack (alignment: .leading) {
-                                        HStack {
-                                            Image(systemName: iconForStatus(torrent.status?.rawValue))
-                                                .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive:  torrent.status?.rawValue == 2)
-                                                .padding(.leading, 6)
-                                                .foregroundStyle(.primary)
-                                            
-                                            Text(torrent.name ?? "Unknown")
-                                                .padding(.leading, 0)
-                                                .foregroundColor(.primary)
-                                        }
+
+                                        Text(torrent.name ?? "Unknown")
+                                            .padding(.leading, 0)
+                                            .foregroundColor(.primary)
+                                        
                                         //status
                                         switch torrent.status?.rawValue {
                                         case 0:
@@ -200,19 +206,31 @@ struct TorrentRows: View {
                                                 .tint(.gray)
                                         }
                                         HStack {
+                                            
                                             if torrent.progress == 1{
+                                                Image(systemName: "internaldrive")
+                                                    .foregroundStyle(.secondary)
+                                                    .font(.system(size: 12, weight: .semibold))
                                                 Text("\(formatBytes(torrent.size ?? 0))")
                                                     .font(.caption)
                                                     .foregroundStyle(.secondary)
                                             } else {
-                                                Text("\(formatBytes(torrent.bytesValid ?? 0)) of \(formatBytes(torrent.size ?? 0))")
+                                                Image(systemName: "arrow.up.arrow.down")
+                                                    .foregroundStyle(.secondary)
+                                                    .font(.system(size: 12, weight: .semibold))
+                                                Text("\(formatBytes(torrent.bytesValid ?? 0).split(separator: " ")[0]) of \(formatBytes(torrent.size ?? 0))")
                                                     .font(.caption)
                                                     .foregroundStyle(.secondary)
                                             }
                                             Spacer()
-                                            Text("added")
-                                                .font(.caption)
+                                            Image(systemName: "plus.app")
                                                 .foregroundStyle(.secondary)
+                                                .font(.system(size: 12, weight: .semibold))
+                                            if let dateAdded = torrent.dateAdded {
+                                                Text(formatDate( dateAdded))
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
                                         }
                                     }
                                 }
@@ -411,7 +429,16 @@ struct TorrentRows: View {
     
     // MARK: - Helpers
     
-    private func iconForStatus(_ status: Int?) -> String {
+    private func iconForStatus(_ torrent: Torrent) -> String {
+        let status = torrent.status?.rawValue
+        
+        if torrent.progress == 1 && status != 2 {
+            if isVideoFile(torrent.name!){
+                return "play"
+            } else {
+                return "externaldrive"
+            }
+        }
         switch status {
         case 0:
             return "xmark.icloud"
@@ -424,6 +451,12 @@ struct TorrentRows: View {
         default:
             return "icloud"
         }
+    }
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
     }
     private func fetchTimer() {
         if !doFetch {
@@ -480,6 +513,14 @@ struct TorrentRows: View {
             downloadDir: downloadDir
         )
     }
+    
+    // MARK: - Video File Detection
+    
+    private func isVideoFile(_ name: String) -> Bool {
+        let videoExtensions = [".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ogv"]
+        let lowercasedName = name.lowercased()
+        return videoExtensions.contains { lowercasedName.hasSuffix($0) }
+    }
 }
 
 // Dummy torrent model for testing
@@ -510,68 +551,3 @@ extension View {
 }
 #endif
 
-
-struct torrentMenu: View {
-    let torrentID: Int
-    let stopped: Bool
-    var body: some View {
-        Menu {
-            Button {
-                
-            } label: {
-                Label("Files", image:"custom.folder.badge.arrow.down")
-                    .symbolRenderingMode(.monochrome)
-            }
-            Button {
-                
-            } label: {
-                Label("Verify", image: "custom.folder.badge.magnifyingglass")
-                    .symbolRenderingMode(.monochrome)
-            }
-            
-            if stopped {
-                Button {
-                    
-                } label: {
-                    Label("Start", systemImage: "play")
-                        .symbolRenderingMode(.monochrome)
-                }
-            } else {
-                
-                Button {
-                    
-                } label: {
-                    Label("Announce", systemImage: "megaphone")
-                        .symbolRenderingMode(.monochrome)
-                }
-                
-                Button {
-                    
-                } label: {
-                    Label("Stop", systemImage: "stop")
-                        .symbolRenderingMode(.monochrome)
-                }
-            }
-            Button {
-                
-            } label: {
-                Label("Rename", systemImage: "dots.and.line.vertical.and.cursorarrow.rectangle")
-                    .symbolRenderingMode(.monochrome)
-            }
-            Button {
-                
-            } label: {
-                Label("Delete", systemImage: "trash")
-                    .symbolRenderingMode(.monochrome)
-            }
-            
-        } label: {
-
-            Image(systemName: "ellipsis.circle")
-                
-        }
-        .foregroundStyle(.primary)
-        
-    }
-    
-}
