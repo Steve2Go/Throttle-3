@@ -354,6 +354,55 @@ class SSHFSManager: ObservableObject {
         print("✓ SSHFSManager: All servers unmounted")
     }
     
+    func unmountAllSync() {
+        print("📂 SSHFSManager: Unmounting all servers (sync)...")
+        
+        let allKeys = Array(mountPaths.keys)
+        for key in allKeys {
+            if let mountPoint = mountPaths[key] {
+                print("🔌 SSHFSManager: Unmounting \(key) from \(mountPoint)")
+                
+                // Terminate process first
+                if let process = processes[key] {
+                    process.terminate()
+                    // Wait for process to terminate
+                    process.waitUntilExit()
+                    print("   Process terminated with status \(process.terminationStatus)")
+                }
+                
+                // Give it a moment
+                Thread.sleep(forTimeInterval: 0.5)
+                
+                // Force unmount using diskutil (more reliable on macOS)
+                let unmountProcess = Process()
+                unmountProcess.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
+                unmountProcess.arguments = ["unmount", "force", mountPoint]
+                
+                do {
+                    try unmountProcess.run()
+                    unmountProcess.waitUntilExit()
+                    print("   diskutil unmount exit code: \(unmountProcess.terminationStatus)")
+                } catch {
+                    print("   diskutil unmount error: \(error)")
+                }
+                
+                // Clean up directory
+                do {
+                    try FileManager.default.removeItem(atPath: mountPoint)
+                    print("   Removed mount point directory")
+                } catch {
+                    print("   Could not remove mount point: \(error)")
+                }
+            }
+        }
+        
+        processes.removeAll()
+        mountStatus.removeAll()
+        mountPaths.removeAll()
+        
+        print("✓ SSHFSManager: All servers unmounted (sync)")
+    }
+    
     // MARK: - Status Checks
     
     func isMounted(_ server: Servers) -> Bool {

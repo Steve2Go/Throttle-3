@@ -157,10 +157,8 @@ struct Throttle_3App: App {
                 // }
             #else
                  .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
-                     // App is quitting - unmount all shares
-                     Task {
-                         await SSHFSManager.shared.unmountAll()
-                     }
+                     // App is quitting - unmount all shares synchronously
+                     SSHFSManager.shared.unmountAllSync()
                  }
             #endif  
         } 
