@@ -28,7 +28,7 @@ struct torrentMenu: View {
                     .symbolRenderingMode(.monochrome)
             }
             
-            if (stopped || single == false) {
+            if (stopped == true || single == false) {
                 Button {
                     
                 } label: {
@@ -37,7 +37,7 @@ struct torrentMenu: View {
                 }
             }
             
-            if (!stopped || single == false) {
+            if (stopped == false || single == false) {
                 
                 Button {
                     

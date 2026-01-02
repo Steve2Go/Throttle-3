@@ -200,8 +200,9 @@ class TunnelManager: ObservableObject {
         }
         
         // Check if server needs Tailscale and connect if needed
-        #if os(iOS)
         if server.useTailscale {
+            #if os(iOS)
+            // iOS: Need to verify Tailscale proxy is up
             // First verify current state with the backend
             if tailscaleManager.isConnected {
                 await tailscaleManager.checkConnectionStatus()
@@ -242,8 +243,45 @@ class TunnelManager: ObservableObject {
                     return nil
                 }
             }
+            #else
+            // macOS: Tailscale runs as system service, just verify it's connected
+            if !tailscaleManager.isConnected && !tailscaleManager.isConnecting {
+                print("🔌 Server requires Tailscale, connecting...")
+                await tailscaleManager.connect()
+                
+                // Wait for Tailscale to connect
+                var tsAttempts = 0
+                let maxTsAttempts = 30 // 30 * 500ms = 15 seconds max
+                
+                while !tailscaleManager.isConnected && tsAttempts < maxTsAttempts {
+                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                    tsAttempts += 1
+                }
+                
+                if !tailscaleManager.isConnected {
+                    print("⚠️ Tailscale connection timed out")
+                    return nil
+                }
+                
+                print("✓ Tailscale connected for tunnel")
+            } else if tailscaleManager.isConnecting {
+                // Wait for existing connection attempt
+                print("⏳ Waiting for existing Tailscale connection...")
+                var tsAttempts = 0
+                let maxTsAttempts = 30
+                
+                while tailscaleManager.isConnecting && tsAttempts < maxTsAttempts {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    tsAttempts += 1
+                }
+                
+                if !tailscaleManager.isConnected {
+                    print("⚠️ Tailscale connection failed")
+                    return nil
+                }
+            }
+            #endif
         }
-        #endif
         
         // Need to create tunnel
         let config = makeConfig(for: server)

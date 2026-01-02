@@ -10,8 +10,9 @@ import SwiftUI
 import Combine
 import KeychainAccess
 import Transmission
+#if os(iOS)
 import TailscaleKit
-
+#endif
 //1 - Tailscale if set, or tunnel()
 
 //2 Tunnels up - Http if set, plus one for SFTP

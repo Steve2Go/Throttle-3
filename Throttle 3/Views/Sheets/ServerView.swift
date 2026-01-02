@@ -67,14 +67,11 @@ struct ServerView: View {
                     Text("Default: /transmission/rpc")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    #if os(iOS)
                     Toggle("Tunnel Over Tailscale", isOn: $server.useTailscale)
-                   .onChange(of: server.useTailscale) { oldValue, newValue in
-                   if newValue {
-                       Task {
-                           await tailscaleManager.connect()
-                       }
-                   }
-                   }
+                    #else
+                    Toggle("Connect Tailscale", isOn: $server.useTailscale)
+                    #endif
                 TextField("Username", text: $server.user)
                     .textContentType(.username)
 #if os(iOS)

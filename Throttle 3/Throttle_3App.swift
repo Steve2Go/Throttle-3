@@ -154,9 +154,9 @@ struct Throttle_3App: App {
                             Button("Settings") {
                                 store.showSettings = true
                             }.keyboardShortcut(",", modifiers: [.command])
-                        Button("Tailscale") {
-                            store.showTailscaleSheet = true
-                        }
+//                        Button("Tailscale") {
+//                            store.showTailscaleSheet = true
+//                        }
                         
                         Button("New Server..."){
                                 store.showAddServer = true
