@@ -110,6 +110,18 @@ struct Throttle_3App: App {
                     if completed {
                         // Mark as ready - connections will be lazy
                         store.isConnected = true
+                        
+                        #if os(macOS)
+                        // Fetch all servers and mount them
+                        Task {
+                            let fetchDescriptor = FetchDescriptor<Servers>(
+                                sortBy: [SortDescriptor(\.name)]
+                            )
+                            if let servers = try? sharedModelContainer.mainContext.fetch(fetchDescriptor) {
+                                await SSHFSManager.shared.mountAllServers(servers: servers)
+                            }
+                        }
+                        #endif
                     }
                 }
             
@@ -143,6 +155,13 @@ struct Throttle_3App: App {
                 //     }
                     
                 // }
+            #else
+                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+                     // App is quitting - unmount all shares
+                     Task {
+                         await SSHFSManager.shared.unmountAll()
+                     }
+                 }
             #endif  
         } 
         .modelContainer(sharedModelContainer)

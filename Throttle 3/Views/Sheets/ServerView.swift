@@ -143,6 +143,13 @@ struct ServerView: View {
      .autocapitalization(.none)
      .keyboardType(.numberPad)
  #endif
+                     TextField("Mount Path (optional)", text: $server.sftpBase)
+ #if os(iOS)
+     .autocapitalization(.none)
+ #endif
+                     Text("Leave empty to mount entire filesystem at /")
+                         .font(.caption)
+                         .foregroundStyle(.secondary)
                    
                 }
                 
