@@ -11,7 +11,6 @@ import Transmission
 import CryptoKit
 import Combine
 import KeychainAccess
-import TailscaleKit
 
 #if os(macOS)
 import AppKit
@@ -19,6 +18,7 @@ typealias PlatformImage = NSImage
 #else
 import UIKit
 typealias PlatformImage = UIImage
+import TailscaleKit
 #endif
 
 /// Manages thumbnail generation for torrents via server-side ffmpeg
@@ -134,8 +134,9 @@ class TorrentThumbnailManager: ObservableObject {
             return
         }
         
-        // Step 2: Find largest video file for each torrent, assign asset icons for non-media
-        var torrentFiles: [(hash: String, filePath: String)] = []
+        // Step 2: Find largest media file for each torrent, assign asset icons for non-media
+        var videoFiles: [(hash: String, filePath: String)] = []
+        var imageFiles: [(hash: String, filePath: String)] = []
         var nonMediaTorrents: [Torrent] = []
         
         for torrent in torrents {
@@ -146,12 +147,15 @@ class TorrentThumbnailManager: ObservableObject {
             // Use torrent's downloadPath if available, otherwise use provided downloadDir
             let basePath = torrent.downloadPath ?? downloadDir
             
-            // Get the largest video file from the files list
-            if let largestFile = getLargestVideoFile(from: files, basePath: basePath) {
-                torrentFiles.append((hash: hash, filePath: largestFile))
-                print("📹 Found video for \(torrent.name ?? hash): \(largestFile)")
+            // Check for image first, then video
+            if let largestImage = getLargestImageFile(from: files, basePath: basePath) {
+                imageFiles.append((hash: hash, filePath: largestImage))
+                print("🖼️ Found image for \(torrent.name ?? hash): \(largestImage)")
+            } else if let largestVideo = getLargestVideoFile(from: files, basePath: basePath) {
+                videoFiles.append((hash: hash, filePath: largestVideo))
+                print("📹 Found video for \(torrent.name ?? hash): \(largestVideo)")
             } else {
-                // Not a video torrent - assign appropriate file type icon
+                // Not a media torrent - assign appropriate file type icon
                 print("📄 Non-media torrent \(torrent.name ?? hash), assigning file type icon")
                 nonMediaTorrents.append(torrent)
                 
@@ -171,14 +175,26 @@ class TorrentThumbnailManager: ObservableObject {
             }
         }
         
-        guard !torrentFiles.isEmpty else {
+        guard !videoFiles.isEmpty || !imageFiles.isEmpty else {
             print("⚠️ No media files found for thumbnails")
             return
         }
         
-        print("📁 Found \(torrentFiles.count) media files")
+        print("📁 Found \(videoFiles.count) videos and \(imageFiles.count) images")
         
-        // Step 2: Create thumbnail directory in ~/.throttle3 and generate all thumbnails in parallel
+        // Step 3: Handle images - download them directly instead of using ffmpeg
+        if !imageFiles.isEmpty {
+            print("🖼️ Downloading \(imageFiles.count) images directly...")
+            await downloadImagesDirectly(imageFiles: imageFiles, server: server)
+        }
+        
+        // If no videos to process, we're done
+        guard !videoFiles.isEmpty else {
+            print("✅ Image downloads complete")
+            return
+        }
+        
+        // Step 4: Create thumbnail directory in ~/.throttle3 and generate video thumbnails in parallel
         // For shell commands, use ~ which will be expanded by the shell
         let thumbsDirShell = "~/.throttle3/thumbnails"
         // For SFTP, we need the absolute path (SFTP doesn't expand ~)
@@ -190,7 +206,7 @@ class TorrentThumbnailManager: ObservableObject {
         
         // Build parallel ffmpeg command with proper error handling
         var ffmpegCommands: [String] = []
-        for (hash, filePath) in torrentFiles {
+        for (hash, filePath) in videoFiles {
             let escapedPath = shellEscape(filePath)
             let thumbPath = "\(thumbsDirShell)/\(hash).jpg"
             // Remove error suppression to see actual failures, add success marker
@@ -203,7 +219,7 @@ class TorrentThumbnailManager: ObservableObject {
         
         let parallelCommand = ffmpegCommands.joined(separator: "\n")
         
-        print("🎬 Running ffmpeg for \(torrentFiles.count) files...")
+        print("🎬 Running ffmpeg for \(videoFiles.count) files...")
         let output = try await sshManager.executeCommand(server: server, command: parallelCommand, timeout: 120)
         
         // Parse output to see which thumbnails actually succeeded
@@ -256,6 +272,39 @@ class TorrentThumbnailManager: ObservableObject {
                 print("✓ Downloaded thumbnail for \(hash)")
             } catch {
                 print("⚠️ Failed to download thumbnail for \(hash): \(error)")
+            }
+        }
+    }
+    
+    /// Download images directly to use as thumbnails (no ffmpeg needed)
+    private func downloadImagesDirectly(imageFiles: [(hash: String, filePath: String)], server: Servers) async {
+        for (hash, remotePath) in imageFiles {
+            let localURL = cacheDirectory.appendingPathComponent("\(hash).jpg")
+            
+            do {
+                try await sftpManager.downloadFile(
+                    server: server,
+                    remotePath: remotePath,
+                    localPath: localURL.path
+                )
+                
+                // Load into memory cache immediately on main actor
+                await MainActor.run {
+                    #if os(macOS)
+                    if let image = NSImage(contentsOf: localURL) {
+                        self.thumbnails[hash] = image
+                    }
+                    #else
+                    if let data = try? Data(contentsOf: localURL),
+                       let image = UIImage(data: data) {
+                        self.thumbnails[hash] = image
+                    }
+                    #endif
+                }
+                
+                print("✓ Downloaded image for \(hash)")
+            } catch {
+                print("⚠️ Failed to download image for \(hash): \(error)")
             }
         }
     }
@@ -344,6 +393,24 @@ class TorrentThumbnailManager: ObservableObject {
         
         // Get the largest video file
         guard let largestFile = videoFiles.max(by: { $0.size < $1.size }) else {
+            return nil
+        }
+        
+        return "\(basePath)/\(largestFile.name)"
+    }
+    
+    /// Get the largest image file from a list of files
+    private func getLargestImageFile(from files: [TorrentFile], basePath: String) -> String? {
+        let imageExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "webp", "ico"]
+        
+        // Filter for image files
+        let imageFiles = files.filter { file in
+            let ext = (file.name as NSString).pathExtension.lowercased()
+            return imageExtensions.contains(ext)
+        }
+        
+        // Get the largest image file
+        guard let largestFile = imageFiles.max(by: { $0.size < $1.size }) else {
             return nil
         }
         

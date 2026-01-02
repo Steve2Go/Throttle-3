@@ -24,7 +24,7 @@ struct ServerList: View {
                     HStack(spacing: 4) {
                         Button {
                             // Handle server switch - just update ID, tunnel is lazy
-                            #if os(iOS)
+//                            #if os(iOS)
                             // On iOS, always navigate even if already selected
                             if selectedServerUUID != server.id.uuidString {
                                 print("🔄 Switching server from \(selectedServerUUID) to \(server.id.uuidString)")
@@ -32,15 +32,15 @@ struct ServerList: View {
                                 store.currentServerID = server.id
                             }
                             store.navigationTrigger = server.id
-                            #else
-                            // On macOS, only navigate if switching to a different server
-                            if selectedServerUUID != server.id.uuidString {
-                                print("🔄 Switching server from \(selectedServerUUID) to \(server.id.uuidString)")
-                                selectedServerUUID = server.id.uuidString
-                                store.currentServerID = server.id
-                                store.navigationTrigger = server.id
-                            }
-                            #endif
+//                            #else
+//                            // On macOS, only navigate if switching to a different server
+//                            if selectedServerUUID != server.id.uuidString {
+//                                print("🔄 Switching server from \(selectedServerUUID) to \(server.id.uuidString)")
+//                                selectedServerUUID = server.id.uuidString
+//                                store.currentServerID = server.id
+//                                store.navigationTrigger = server.id
+//                            }
+//                            #endif
                         } label: {
                             HStack(spacing: 4) {
                                 Image(server.id.uuidString == selectedServerUUID ? "custom.server.rack.circle.fill" : "custom.server.rack.circle")
@@ -82,12 +82,12 @@ struct ServerList: View {
             .onAppear {
                 // Auto-navigate to selected server if it exists
                 // Reset didLoad for new windows on macOS
-                #if os(macOS)
-                if hasAppeared {
-                    store.didLoad = false
-                }
-                hasAppeared = true
-                #endif
+//                #if os(macOS)
+//                if hasAppeared {
+//                    store.didLoad = false
+//                }
+//                hasAppeared = true
+//                #endif
                 
                 
                 //auto connect

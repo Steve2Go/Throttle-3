@@ -10,7 +10,9 @@ import SwiftData
 import Transmission
 import KeychainAccess
 import Combine
+#if os(iOS)
 import TailscaleKit
+#endif
 
 struct TorrentRows: View {
     //let isSidebarVisible: Bool
@@ -148,7 +150,7 @@ struct TorrentRows: View {
                                             // Downloading
                                             Image("folder")
                                                 .resizable()
-                                                .frame(maxWidth: 55,maxHeight:55)
+                                                .frame(maxWidth: 65,maxHeight:65)
                                         } else if let thumbnail = thumbnailManager.getThumbnail(for: torrent) {
                                             // Has cached thumbnail
 #if os(macOS)
@@ -189,7 +191,7 @@ struct TorrentRows: View {
                                         .foregroundStyle(.white)
                                         .padding(8)
                                         .background(Circle().fill(.quaternary))
-                                        .padding(.leading, -35)
+                                        .padding(.leading, -40)
                                         .padding(.top, 40)
                                         .symbolEffect(.rotate.byLayer, options: .repeat(.continuous), isActive: torrent.status?.rawValue == 2)
                                         .symbolEffect(.breathe, isActive: torrent.status?.rawValue != 2 && thumbnailManager.generatingHashes.contains(torrent.hash ?? ""))
@@ -478,6 +480,9 @@ struct TorrentRows: View {
             visibleTorrentHashes.removeAll()
             cancellables.removeAll()
             doFetch = false
+            Task{
+                await fetchTorrents()
+            }
         }
         // .onChange(of: store.isConnected) {
         //     if store.isConnected {
