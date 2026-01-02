@@ -35,9 +35,9 @@ struct SettingsView: View {
             Form {
                 Section("General") {
                     Picker("Startup Server", selection: $onstartServer) {
-                        Text("Last Used").tag(String?.none)
+                        Text("Last Used").tag("")
                         ForEach(servers) { server in
-                            Text(server.name).tag(String?.some(server.id.uuidString))
+                            Text(server.name).tag(server.id.uuidString)
                         }
                     }
                     Toggle("Choose Files when Adding", isOn: $chooseFiles)
