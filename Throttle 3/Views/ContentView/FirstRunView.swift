@@ -20,7 +20,7 @@ struct FirstRunView: View {
             Label("Welcome.\nAdd a server to get started", systemImage: "figure.wave")
         }
         BasicSettings()
-        TailscaleToggle()
+        //TailscaleToggle()
         Button("Server Information"){
             // Force re-check servers in case CloudKit synced
             checkServers += 1

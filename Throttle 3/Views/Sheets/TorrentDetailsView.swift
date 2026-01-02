@@ -10,6 +10,7 @@ import Transmission
 
 struct TorrentDetailsView: View {
     let torrent: Torrent
+    let server: Servers
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -41,7 +42,7 @@ struct TorrentDetailsView: View {
                 }
                 ToolbarItem(placement: .primaryAction ) {
                     Menu {
-                        torrentMenu(torrentID: Set([torrent.id!]), stopped: torrent.status?.rawValue == 0 ? true : false, single: true)
+                        torrentMenu(torrentID: Set([torrent.id!]), stopped: torrent.status?.rawValue == 0 ? true : false, single: true, server: server)
                     } label: {
                         #if os(iOS)
                         Image(systemName: "ellipsis.circle")

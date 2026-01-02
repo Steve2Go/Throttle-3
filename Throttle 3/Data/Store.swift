@@ -25,6 +25,8 @@ class Store: NSObject, ObservableObject {
     @Published var navigationTrigger: UUID?
     @Published var torrents: [Torrent] = []
     @Published var isConnected = false
+    @Published var successIndicator = false
+    @Published var failIndicator = false
 //    @Published var currentServer: Servers?
-
+        
 }

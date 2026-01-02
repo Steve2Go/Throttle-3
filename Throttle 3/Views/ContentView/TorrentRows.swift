@@ -296,7 +296,9 @@ struct TorrentRows: View {
                                         Image(systemName: "checkmark.circle")
                                         Text("Select")
                                     }
-                                    torrentMenu(torrentID: Set([torrent.id!]), stopped: torrent.status?.rawValue == 0 ? true : false, single: true)
+                                    if let currentServer = currentServer {
+                                        torrentMenu(torrentID: Set([torrent.id!]), stopped: torrent.status?.rawValue == 0 ? true : false, single: true, server: currentServer)
+                                    }
                                 }
                             }
                             .padding(.vertical, 5)
@@ -319,6 +321,8 @@ struct TorrentRows: View {
         .toolbar {
             if selectedTorrents.isEmpty {
                 ToolbarItemGroup(placement: .automatic) {
+                    
+                   
                     
                     if tailscaleManager.isConnecting {
                         Button(action: {}) {
@@ -349,6 +353,14 @@ struct TorrentRows: View {
                         }
 #endif
                         
+                    }
+                    
+                    if store.successIndicator {
+                        Button(action: {}) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .symbolEffect(.pulse)
+                                .foregroundStyle(.green)
+                        }
                     }
 #if os(iOS)
                     Menu {
@@ -405,18 +417,20 @@ struct TorrentRows: View {
                             Text("Cancel")
                         }
                     }
-                    Menu {
-                        torrentMenu(torrentID: selectedTorrents, stopped: false, single: false)
-                    } label: {
-                        Image("custom.ellipsis.circle.badge.checkmark")
+                    if let currentServer = currentServer {
+                        Menu {
+                            torrentMenu(torrentID: selectedTorrents, stopped: false, single: false, server: currentServer)
+                        } label: {
+                            Image("custom.ellipsis.circle.badge.checkmark")
+                        }
                     }
                 }
             }
             
         }
         .sheet(isPresented: $showingTorrentDetails) {
-            if let torrent = selectedTorrent {
-                TorrentDetailsView(torrent: torrent)
+            if let torrent = selectedTorrent, let currentServer = currentServer {
+                TorrentDetailsView(torrent: torrent, server: currentServer)
 #if os(macOS)
                     .frame(minWidth: 400, minHeight: 710)
 #endif
@@ -449,6 +463,14 @@ struct TorrentRows: View {
             // Fetch torrents when view appears
             Task {
                 await fetchTorrents()
+            }
+        }
+        .onChange(of:store.successIndicator){
+            if store.successIndicator == true {
+                Task {
+                try? await Task.sleep(nanoseconds: 2_000_000_000) // 0.1 seconds
+                   await fetchTorrents()
+                }
             }
         }
 

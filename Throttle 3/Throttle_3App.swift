@@ -118,26 +118,24 @@ struct Throttle_3App: App {
                         store.torrents = []
                         store.isConnected = false
                     }
+                    .onChange(of:store.successIndicator){
+                        if store.successIndicator == true {
+                            Task {
+                                try? await Task.sleep(nanoseconds: 3_000_000_000) // 0.1 seconds
+                                store.successIndicator = false
+                            }
+                        }
+                    }
             #if os(iOS)
-//                 .onChange(of: scenePhase) {
-//                     ///opened from BG
-//                     if scenePhase == .active {
-//                         // Tunnels will recreate on demand
-//                         store.isConnected = true
-//                     } else {
-//                         // Background - stop all tunnels
-//                         Task {
-//                             TunnelManager.shared.stopAllTunnels()
-//                             await TSmanager.disconnect()
-//                             store.isConnected = false
-//                         }
-// //                        disconnectTask = Task {
-// //                            try? await Task.sleep(nanoseconds: 10_000_000_000)
-// //                            guard !Task.isCancelled else { return }
-// //                            
-// //                        }
-//                     }
-//                 }
+                 .onChange(of: scenePhase) {
+                     ///opened from BG
+                     if scenePhase != .active {
+                         Task {
+                             TunnelManager.shared.stopAllTunnels()
+                            // await TSmanager.disconnect()
+                         }
+                     }
+                 }
                 // .onChange(of: networkMonitor.gateways) {
                 //     ///network changed
                 //     if scenePhase == .active {
