@@ -224,14 +224,14 @@ store.navigationTrigger = store.currentServerID
                     //Ios only Settings nav
                     .toolbar {
                        
-                            Button(action: {
-                                store.showTailscaleSheet = true
-                            }) {
-                                Image("custom.circle.grid.3x3")
-                                    .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive: tailscaleManager.isConnecting)
-                                    .symbolRenderingMode(.hierarchical)
-                                    .foregroundStyle(.primary, .secondary)
-                            }
+                            // Button(action: {
+                            //     store.showTailscaleSheet = true
+                            // }) {
+                            //     Image("custom.circle.grid.3x3")
+                            //         .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive: tailscaleManager.isConnecting)
+                            //         .symbolRenderingMode(.hierarchical)
+                            //         .foregroundStyle(.primary, .secondary)
+                            // }
                         
                         
                         Button(

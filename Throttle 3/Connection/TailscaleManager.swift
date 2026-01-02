@@ -245,6 +245,14 @@ class TailscaleManager: ObservableObject {
         }
     }
     
+    func isConfigured() -> Bool {
+        let dataDir = FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("tailscale")
+        
+        return FileManager.default.fileExists(atPath: dataDir.path)
+    }
+    
     // MARK: - Safari View Controller
     
     private func presentSafariViewController(url: URL) {

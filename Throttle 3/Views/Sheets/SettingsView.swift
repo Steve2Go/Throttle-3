@@ -63,7 +63,17 @@ struct SettingsView: View {
 #endif
                     Toggle("Sync Authentication", isOn: $syncKeychain)
                 }
-                
+#if os(iOS)
+                Section("Tailscale") {
+                    Button("Clear Tailscale Auth") {
+                        let tailscaleManager = TailscaleManager.shared
+                        Task {
+                            await tailscaleManager.clear()
+                        }
+                    }
+
+                }
+                #endif
             }
             .navigationTitle("Settings")
 #if os(iOS)
