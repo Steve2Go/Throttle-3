@@ -14,6 +14,7 @@ struct torrentMenu: View {
     let stopped: Bool
     let single: Bool
     let server: Servers
+    @Binding var showFilesPicker: Bool
     
     @State private var cancellables = Set<AnyCancellable>()
     @State private var showRenameAlert = false
@@ -27,7 +28,7 @@ struct torrentMenu: View {
         
             if single {
                 Button {
-                    // Files - not implemented yet
+                    showFilesPicker = true
                 } label: {
                     Label("Files", image:"custom.folder.badge.arrow.down")
                         .symbolRenderingMode(.monochrome)
@@ -192,6 +193,20 @@ struct torrentMenu: View {
                             case .failure(let error):
                                 print("❌ \(action.methodName) failed: \(error)")
                             }
+                            continuation.resume()
+                        }
+                    },
+                    receiveValue: { _ in
+                        // Void response, nothing to process
+                    }
+                )
+            
+            if let cancellable = cancellable {
+                // Keep the cancellable alive until the request completes
+                keepAlive.insert(cancellable)
+            }
+        }
+    }
     
     // MARK: - Rename Action
     
@@ -309,18 +324,5 @@ struct torrentMenu: View {
 struct RenameResponse {
     let path: String
     let name: String
-    let id: Int                           continuation.resume()
-                        }
-                    },
-                    receiveValue: { _ in
-                        // Void response, nothing to process
-                    }
-                )
-            
-            if let cancellable = cancellable {
-                // Keep the cancellable alive until the request completes
-                keepAlive.insert(cancellable)
-            }
-        }
-    }
+    let id: Int
 }

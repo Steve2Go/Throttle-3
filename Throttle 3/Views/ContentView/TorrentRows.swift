@@ -35,6 +35,8 @@ struct TorrentRows: View {
     @State private var thumbnailDebounceTask: Task<Void, Never>?
     @State private var showingTorrentDetails = false
     @State private var selectedTorrent: Torrent?
+    @State private var showFilesPicker = false
+    @State private var selectedTorrentForFiles: Int?
     @Query var servers: [Servers]
     @State private var doFetch = false
     @AppStorage("refreshRate") var refreshRate = "30"
@@ -297,7 +299,17 @@ struct TorrentRows: View {
                                         Text("Select")
                                     }
                                     if let currentServer = currentServer {
-                                        torrentMenu(torrentID: Set([torrent.id!]), stopped: torrent.status?.rawValue == 0 ? true : false, single: true, server: currentServer)
+                                        torrentMenu(torrentID: Set([torrent.id!]), stopped: torrent.status?.rawValue == 0 ? true : false, single: true, server: currentServer, showFilesPicker: Binding(
+                                            get: { showFilesPicker && selectedTorrentForFiles == torrent.id },
+                                            set: { newValue in
+                                                showFilesPicker = newValue
+                                                if newValue {
+                                                    selectedTorrentForFiles = torrent.id
+                                                } else {
+                                                    selectedTorrentForFiles = nil
+                                                }
+                                            }
+                                        ))
                                     }
                                 }
                             }
@@ -419,7 +431,7 @@ struct TorrentRows: View {
                     }
                     if let currentServer = currentServer {
                         Menu {
-                            torrentMenu(torrentID: selectedTorrents, stopped: false, single: false, server: currentServer)
+                            torrentMenu(torrentID: selectedTorrents, stopped: false, single: false, server: currentServer, showFilesPicker: .constant(false))
                         } label: {
                             Image("custom.ellipsis.circle.badge.checkmark")
                         }
@@ -436,6 +448,14 @@ struct TorrentRows: View {
 #endif
             }
         }
+        .sheet(isPresented: $showFilesPicker) {
+            if let torrentID = selectedTorrentForFiles, let currentServer = currentServer {
+                DownloadPicker(torrentID: torrentID, server: currentServer)
+                    #if os(macOS)
+                    .frame(minWidth: 500, minHeight: 300)
+                    #endif
+            }
+        }
         .navigationTitle(selectedTorrents.isEmpty ? currentServer?.name ?? "" : "Selection")
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -446,6 +466,13 @@ struct TorrentRows: View {
 //#if os(iOS)
 //       // .applySearchToolbarBehaviorIfAvailable()
 //#endif
+        .onChange(of: scenePhase) {
+            if scenePhase == .active {
+                Task {
+                    await fetchTorrents()
+                }
+            }
+        }
         .onChange(of: store.currentServerID){
             store.torrents = []
             visibleTorrentHashes.removeAll()
@@ -470,6 +497,14 @@ struct TorrentRows: View {
                 Task {
                 try? await Task.sleep(nanoseconds: 2_000_000_000) // 0.1 seconds
                    await fetchTorrents()
+                }
+            }
+        }
+        .onChange(of: store.needsRefresh) {
+            if store.needsRefresh {
+                store.needsRefresh = false
+                Task {
+                    await fetchTorrents()
                 }
             }
         }

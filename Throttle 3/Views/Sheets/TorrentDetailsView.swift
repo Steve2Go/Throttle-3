@@ -12,6 +12,7 @@ struct TorrentDetailsView: View {
     let torrent: Torrent
     let server: Servers
     @Environment(\.dismiss) private var dismiss
+    @State private var showFilesPicker = false
     
     var body: some View {
         NavigationStack {
@@ -34,6 +35,16 @@ struct TorrentDetailsView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .sheet(isPresented: $showFilesPicker, onDismiss: {
+                dismiss()
+            }) {
+                if let torrentID = torrent.id {
+                    DownloadPicker(torrentID: torrentID, server: server)
+                        #if os(macOS)
+                        .frame(minWidth: 500, minHeight: 300)
+                        #endif
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") {
@@ -42,7 +53,7 @@ struct TorrentDetailsView: View {
                 }
                 ToolbarItem(placement: .primaryAction ) {
                     Menu {
-                        torrentMenu(torrentID: Set([torrent.id!]), stopped: torrent.status?.rawValue == 0 ? true : false, single: true, server: server)
+                        torrentMenu(torrentID: Set([torrent.id!]), stopped: torrent.status?.rawValue == 0 ? true : false, single: true, server: server, showFilesPicker: $showFilesPicker)
                     } label: {
                         #if os(iOS)
                         Image(systemName: "ellipsis.circle")
