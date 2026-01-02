@@ -30,7 +30,6 @@ struct Throttle_3App: App {
     @ObservedObject private var TSmanager = TailscaleManager.shared
     @StateObject var networkMonitor = NetworkMonitor()
     @StateObject private var store = Store()
-    @ObservedObject private var connectionManager = ConnectionManager.shared
     
     @State private var hasCompletedInitialSync = false
     @State private var containerRefreshTrigger = 0
@@ -119,31 +118,20 @@ struct Throttle_3App: App {
                     }
             
                     .onChange(of: store.currentServerID) { oldID, newID in
+                        // Just clear torrents - tunnel will be created on demand
                         store.torrents = []
                         store.isConnected = false
-            
-                        Task {
-                            // Disconnect from old server
-                            connectionManager.disconnect()
-            
-                            // Wait for currentServerID to clear
-                            while connectionManager.currentServerID != nil {
-                                try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
-                            }
-                            
-                            connectServer()
-            
-                        }
                     }
             #if os(iOS)
                 .onChange(of: scenePhase) {
                     ///opened from BG
                     if scenePhase == .active {
-                        //disconnectTask?.cancel()
+                        // Tunnels will recreate on demand
                         connectWithTailscale()
                     } else {
+                        // Background - stop all tunnels
                         Task {
-                            connectionManager.disconnect()
+                            TunnelManager.shared.stopAllTunnels()
                             await TSmanager.disconnect()
                             store.isConnected = false
                         }
@@ -210,18 +198,8 @@ struct Throttle_3App: App {
             return
         }
         
-        //connectionManager.disconnect()
-        
-        Task {
-            //try? await Task.sleep(nanoseconds: 500_000_000) // .5 second after last activity
-            await connectionManager.connect(server: currentServer)
-            //try? await Task.sleep(nanoseconds: 500_000_000) // .5 second after last activity
-            while connectionManager.isConnected == false {
-                try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
-            }
-            //try? await Task.sleep(nanoseconds: 900_000_000) // 0.2 seconds
-            store.isConnected = true
-        }
+        // Just mark as connected - tunnel will be created on first use
+        store.isConnected = true
     }
     
     private func observeCloudKitActivity() {

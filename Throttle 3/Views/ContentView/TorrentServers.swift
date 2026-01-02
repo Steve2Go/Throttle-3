@@ -23,12 +23,11 @@ struct ServerList: View {
                 ForEach(servers) { server in
                     HStack(spacing: 4) {
                         Button {
-                            // Handle server switch
+                            // Handle server switch - just update ID, tunnel is lazy
                             #if os(iOS)
                             // On iOS, always navigate even if already selected
                             if selectedServerUUID != server.id.uuidString {
                                 print("🔄 Switching server from \(selectedServerUUID) to \(server.id.uuidString)")
-                                ConnectionManager.shared.disconnect()
                                 selectedServerUUID = server.id.uuidString
                                 store.currentServerID = server.id
                             }
@@ -37,7 +36,6 @@ struct ServerList: View {
                             // On macOS, only navigate if switching to a different server
                             if selectedServerUUID != server.id.uuidString {
                                 print("🔄 Switching server from \(selectedServerUUID) to \(server.id.uuidString)")
-                                ConnectionManager.shared.disconnect()
                                 selectedServerUUID = server.id.uuidString
                                 store.currentServerID = server.id
                                 store.navigationTrigger = server.id

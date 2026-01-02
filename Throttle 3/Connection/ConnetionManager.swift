@@ -27,6 +27,10 @@ class ConnectionManager: ObservableObject {
     @Published var errorMessage: String?
     @Published var currentServerID: UUID?
     
+    // Operation tracking
+    private var activeOperations: Set<UUID> = []
+    private var isDisconnecting: Bool = false
+    
     private let tailscaleManager = TailscaleManager.shared
     private let tunnelManager = TunnelManager.shared
     private let sshManager = SSHManager.shared
@@ -61,6 +65,11 @@ class ConnectionManager: ObservableObject {
     /// Connect tunnels for a server configuration
     /// This handles Tailscale waiting and establishes all necessary SSH tunnels
     func connect(server: Servers) async {
+        // Don't connect if we're in the middle of disconnecting
+        guard !isDisconnecting else {
+            print("⚠️ ConnectionManager: Cannot connect while disconnecting")
+            return
+        }
         guard !isConnecting else { return }
         
         isConnecting = true
@@ -117,7 +126,6 @@ class ConnectionManager: ObservableObject {
             }
             
             if allActive {
-                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
                 isConnected = true
                 isConnecting = false
                 print("✓ ConnectionManager: All tunnels are active and ports are listening")
@@ -134,18 +142,50 @@ class ConnectionManager: ObservableObject {
         print("⚠️ ConnectionManager: Timeout - not all tunnel ports are listening")
     }
     
-    /// Disconnect all tunnels
-    func disconnect() {
-        Task {
-            tunnelManager.stopAllTunnels()
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.2 seconds
-            //await tailscaleManager.disconnect()
-            isConnected = false
-            isConnecting = false
-            currentServerID = nil
-            
-            print("✓ ConnectionManager: All tunnels disconnected, state cleared")
+    /// Disconnect all tunnels - waits for active operations to complete
+    func disconnect() async {
+        guard !isDisconnecting else { return }
+        
+        isDisconnecting = true
+        isConnected = false
+        isConnecting = false
+        
+        // Wait for active operations to complete (max 5 seconds)
+        var waitAttempts = 0
+        let maxWaitAttempts = 10 // 10 * 500ms = 5 seconds
+        
+        while !activeOperations.isEmpty && waitAttempts < maxWaitAttempts {
+            print("⏳ Waiting for \(activeOperations.count) active operation(s) to complete...")
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+            waitAttempts += 1
         }
+        
+        if !activeOperations.isEmpty {
+            print("⚠️ Force disconnecting with \(activeOperations.count) operation(s) still active")
+        }
+        
+        // Stop all tunnels
+        tunnelManager.stopAllTunnels()
+        
+        // Wait for port release
+        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds for port cleanup
+        
+        currentServerID = nil
+        isDisconnecting = false
+        
+        print("✓ ConnectionManager: All tunnels disconnected, state cleared")
+    }
+    
+    /// Register an active operation (like torrent fetch)
+    func beginOperation() -> UUID {
+        let operationID = UUID()
+        activeOperations.insert(operationID)
+        return operationID
+    }
+    
+    /// Unregister an active operation
+    func endOperation(_ operationID: UUID) {
+        activeOperations.remove(operationID)
     }
     
     // MARK: - Private Methods
@@ -155,7 +195,12 @@ class ConnectionManager: ObservableObject {
 //            return
 //        }
         
-        
+        // Check and install ffmpeg if needed (before starting tunnel)
+        if !server.ffmpegInstalled {
+            await checkAndInstallFfmpeg(server: server)
+        } else{
+            print("✓ ffmpeg already installed, skipping check")
+        }
         let credentials = loadCredentials(for: server)
         
         // Use port + 8000 for local web tunnel (e.g., 80 -> 8080, 9091 -> 17091)
@@ -176,12 +221,6 @@ class ConnectionManager: ObservableObject {
             print("✓ Web tunnel connected on port \(state.localPort ?? 0)")
         } else if let state = tunnelManager.getTunnelState(id: "web"), let error = state.errorMessage {
             print("❌ Web tunnel failed: \(error)")
-        }
-        // Check and install ffmpeg if needed (before starting tunnel)
-        if !server.ffmpegInstalled {
-            await checkAndInstallFfmpeg(server: server)
-        } else{
-            print("✓ ffmpeg already installed, skipping check")
         }
     }
     

@@ -24,7 +24,6 @@ struct TorrentRows: View {
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @ObservedObject private var tailscaleManager = TailscaleManager.shared
     @ObservedObject private var tunnelManager = TunnelManager.shared
-    @ObservedObject private var connectionManager = ConnectionManager.shared
     @ObservedObject private var thumbnailManager = TorrentThumbnailManager.shared
     @AppStorage("currentFilter") private var currentFilter: String = "dateAdded"
     @AppStorage("currentStatusFilter") private var currentStatusFilter: String = "all"
@@ -321,7 +320,7 @@ struct TorrentRows: View {
                                 .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
                                 .symbolRenderingMode(.hierarchical)
                         }
-                    } else if connectionManager.isConnecting {
+                    } else if tunnelManager.isConnecting {
                         Button(action: {}) {
                             Image("custom.server.rack.shield")
                                 .symbolEffect(.wiggle.clockwise.byLayer, options: .repeat(.periodic(delay: 0.5)))
@@ -457,10 +456,15 @@ struct TorrentRows: View {
         isLoadingTorrents = true
         defer { isLoadingTorrents = false }
         
-        // Build Transmission URL
+        // Ensure tunnel exists and get local port
+        guard let port = await tunnelManager.ensureTunnel(for: server) else {
+            print("❌ Failed to establish tunnel for server: \(server.name)")
+            return
+        }
+        
+        // Build Transmission URL using the tunnel port
         let scheme = "http"
         let host = "127.0.0.1"
-        let port = (Int(server.serverPort) ?? 80) + 8000
         
         let urlString = "\(scheme)://\(host):\(port)\(server.rpcPath)"
         
@@ -474,18 +478,34 @@ struct TorrentRows: View {
         
         print("Connecting to Transmission at: \(urlString)")
         
-        let client = Transmission(baseURL: url, username: server.user, password: password, )
+        let client = Transmission(baseURL: url, username: server.user, password: password)
 
-        // Use Combine to async/await bridge
+        // Use Combine to async/await bridge with timeout
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            client.request(.torrents(properties: Torrent.PropertyKeys.allCases))
+            var cancellable: AnyCancellable?
+            var hasResumed = false
+            
+            // Set a timeout
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
+                if !hasResumed {
+                    hasResumed = true
+                    cancellable?.cancel()
+                    print("⚠️ Transmission request timed out after 30 seconds")
+                    continuation.resume()
+                }
+            }
+            
+            cancellable = client.request(.torrents(properties: Torrent.PropertyKeys.allCases))
                 .receive(on: DispatchQueue.main)
                 .sink(
                     receiveCompletion: { completion in
                         if case let .failure(error) = completion {
                             print("❌ Failed to fetch torrents: \(error)")
                         }
-                        continuation.resume()
+                        if !hasResumed {
+                            hasResumed = true
+                            continuation.resume()
+                        }
                     },
                     receiveValue: { (fetchedTorrents: [Torrent]) in
                         store.torrents = fetchedTorrents
@@ -494,8 +514,10 @@ struct TorrentRows: View {
                         fetchTimer()
                     }
                 )
-                .store(in: &cancellables)
             
+            if let cancellable = cancellable {
+                cancellables.insert(cancellable)
+            }
         }
     }
     

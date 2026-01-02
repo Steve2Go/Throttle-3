@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import KeychainAccess
 #if os(macOS)
 import SshLib_macOS
 #else
@@ -56,12 +57,12 @@ class TunnelManager: ObservableObject {
     // MARK: - Public Interface
     
     func startTunnel(id: String, config: SSHTunnelConfig) async {
-        await stopTunnel(id: id)
         // Initialize tunnel state if it doesn't exist
         if tunnels[id] == nil {
             tunnels[id] = TunnelState()
         }
         
+        // Don't restart if already connecting or active
         guard tunnels[id]?.isConnecting == false else { return }
         guard tunnels[id]?.isActive == false else { return }
         
@@ -124,7 +125,7 @@ class TunnelManager: ObservableObject {
         }
     }
     
-    func stopTunnel(id: String) async {
+    func stopTunnel(id: String) {
         guard tunnels[id] != nil else {
             print("⚠️ Tunnel [\(id)] not found")
             return
@@ -139,9 +140,6 @@ class TunnelManager: ObservableObject {
         } else {
             print("✓ SSH tunnel [\(id)] stopped successfully")
         }
-        while await checkTunnelConnectivity(id: id){
-            try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
-        }
         
         // Remove the tunnel state
         tunnels.removeValue(forKey: id)
@@ -152,10 +150,72 @@ class TunnelManager: ObservableObject {
     
     func stopAllTunnels() {
         for id in tunnels.keys {
-            Task {
-                await stopTunnel(id: id)
-            }
+            stopTunnel(id: id)
         }
+    }
+    
+    /// Lazy tunnel creation - ensures tunnel exists for server, creating if needed
+    /// Returns the local port to use for connections
+    func ensureTunnel(for server: Servers) async -> Int? {
+        let tunnelKey = "\(server.serverAddress):\(server.serverPort)"
+        
+        // Already have an active tunnel? Return its port
+        if let existing = tunnels[tunnelKey], existing.isActive, let port = existing.localPort {
+            return port
+        }
+        
+        // If tunnel is connecting, wait for it
+        if let existing = tunnels[tunnelKey], existing.isConnecting {
+            // Wait for tunnel to become active
+            var attempts = 0
+            let maxAttempts = 40 // 40 * 500ms = 20 seconds max
+            
+            while attempts < maxAttempts {
+                if let state = tunnels[tunnelKey] {
+                    if await checkTunnelConnectivity(id: tunnelKey) {
+                        if !state.isActive {
+                            markTunnelActive(id: tunnelKey)
+                        }
+                        return state.localPort
+                    }
+                }
+                
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                attempts += 1
+            }
+            
+            print("⚠️ Tunnel [\(tunnelKey)] timed out while connecting")
+            return nil
+        }
+        
+        // Need to create tunnel
+        let config = makeConfig(for: server)
+        await startTunnel(id: tunnelKey, config: config)
+        
+        // Give the SSH library a moment to establish the connection
+        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second initial delay
+        
+        // Wait for tunnel to become active
+        var attempts = 0
+        let maxAttempts = 40 // 40 * 500ms = 20 seconds max
+        
+        while attempts < maxAttempts {
+            if let state = tunnels[tunnelKey] {
+                // Check port connectivity
+                if await checkTunnelConnectivity(id: tunnelKey) {
+                    if !state.isActive {
+                        markTunnelActive(id: tunnelKey)
+                    }
+                    return state.localPort
+                }
+            }
+            
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+            attempts += 1
+        }
+        
+        print("⚠️ Tunnel [\(tunnelKey)] timed out")
+        return nil
     }
     
     func getTunnelState(id: String) -> TunnelState? {
@@ -183,33 +243,51 @@ class TunnelManager: ObservableObject {
     
     /// Check if a tunnel's local port is listening (confirms tunnel is active)
     func checkTunnelConnectivity(id: String) async -> Bool {
-        guard let port = tunnels[id]?.localPort else {
+        guard tunnels[id]?.localPort != nil else {
             print("⚠️ No local port found for tunnel [\(id)]")
             return false
         }
         
-        print("🔍 Checking connectivity for tunnel [\(id)] on port \(port)")
-        
-        // Try to connect to the local port
-        let host = "127.0.0.1"
-        let streamTask = URLSession.shared.streamTask(withHostName: host, port: port)
-        
-        return await withCheckedContinuation { continuation in
-            streamTask.resume()
-            
-            // Give it a moment to connect
-            DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) {
-                if streamTask.state == .running {
-                    streamTask.cancel()
-                    continuation.resume(returning: true)
-                } else {
-                    continuation.resume(returning: false)
-                }
-            }
-        }
+        // Use the library's reliable status check
+        let isActive = SshlibIsTunnelActive(id)
+        return isActive
     }
     
     // MARK: - Private Methods
+    
+    private func makeConfig(for server: Servers) -> SSHTunnelConfig {
+        // Load credentials from keychain
+        let keychain = Keychain(service: "com.srgim.throttle3")
+        let credentials: SSHCredentials
+        
+        if server.sshUsesKey {
+            let privateKey = keychain["\(server.id.uuidString)-sshkey"] ?? ""
+            credentials = SSHCredentials(
+                username: server.sshUser,
+                password: nil,
+                privateKey: privateKey
+            )
+        } else {
+            let password = keychain["\(server.id.uuidString)-sshpassword"] ?? ""
+            credentials = SSHCredentials(
+                username: server.sshUser,
+                password: password,
+                privateKey: nil
+            )
+        }
+        
+        // Use port + 8000 for local web tunnel (e.g., 9091 -> 17091)
+        let localWebPort = (Int(server.serverPort) ?? 80) + 8000
+        
+        return SSHTunnelConfig(
+            sshHost: server.sshHost.isEmpty ? server.serverAddress : server.sshHost,
+            sshPort: Int(server.sshPort) ?? 22,
+            remoteAddress: "127.0.0.1:\(server.serverPort)",
+            localAddress: "127.0.0.1:\(localWebPort)",
+            credentials: credentials,
+            useTailscale: server.useTailscale
+        )
+    }
     
     private func updateGlobalConnectingState() {
         isConnecting = tunnels.values.contains(where: { $0.isConnecting })
