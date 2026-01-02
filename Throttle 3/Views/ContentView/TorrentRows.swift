@@ -184,15 +184,15 @@ struct TorrentRows: View {
                                             visibleTorrentHashes.remove(hash)
                                         }
                                     }
-                                    Image(systemName: thumbnailManager.generatingHashes.contains(torrent.hash ?? "") ? "photo.badge.arrow.down" : iconForStatus(torrent))
+                                    Image(systemName: thumbnailManager.generatingHashes.contains(torrent.hash ?? "") ? "photo.badge.arrow.down.fill" : iconForStatus(torrent))
                                         .font(.system(size: 12, weight: .semibold))
                                         .foregroundStyle(.white)
-                                        .padding(5)
+                                        .padding(8)
                                         .background(Circle().fill(.quaternary))
                                         .padding(.leading, -35)
                                         .padding(.top, 40)
-                                        .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive: torrent.status?.rawValue == 2)
-                                        .symbolEffect(.bounce.up.byLayer, options: .repeat(.periodic(delay: 0.0)), isActive: torrent.status?.rawValue != 2 && thumbnailManager.generatingHashes.contains(torrent.hash ?? ""))
+                                        .symbolEffect(.rotate.byLayer, options: .repeat(.continuous), isActive: torrent.status?.rawValue == 2)
+                                        .symbolEffect(.breathe, isActive: torrent.status?.rawValue != 2 && thumbnailManager.generatingHashes.contains(torrent.hash ?? ""))
                                 } else {
                                     Image(systemName: iconForStatus(torrent))
                                         .font(.system(size: 18, weight: .semibold))
@@ -601,22 +601,22 @@ struct TorrentRows: View {
         
         if torrent.progress == 1 && status != 2 {
             if isVideoFile(torrent.name!){
-                return "play"
+                return "play.fill"
             } else {
-                return "externaldrive"
+                return "externaldrive.fill"
             }
         }
         switch status {
         case 0:
-            return "xmark.icloud"
+            return "stop.fill"
         case 2:
-            return "arrow.trianglehead.clockwise.icloud"
+            return "arrow.clockwise.fill"
         case 4:
-            return "icloud.and.arrow.down"
+            return "arrowshape.down.fill"
         case 6:
-            return "icloud.and.arrow.up"
+            return "arrowshape.up.fill"
         default:
-            return "icloud"
+            return "icloud.fill"
         }
     }
     private func formatDate(_ date: Date) -> String {
