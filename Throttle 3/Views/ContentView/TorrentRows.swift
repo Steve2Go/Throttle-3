@@ -254,6 +254,14 @@ struct TorrentRows: View {
                                                         Image(systemName: "internaldrive")
                                                             .foregroundStyle(.secondary)
                                                             .font(.system(size: 12, weight: .semibold))
+                                                            #if os(macOS)
+                                                            .onTapGesture {
+                                                                if let server = currentServer,
+                                                                   let mountPath = SSHFSManager.shared.getMountPath(server) {
+                                                                    NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: mountPath)
+                                                                }
+                                                            }
+                                                            #endif
                                                         Text("\(formatBytes(torrent.size ?? 0))")
                                                             .font(.caption)
                                                             .foregroundStyle(.secondary)
@@ -396,9 +404,19 @@ struct TorrentRows: View {
 #endif
                     
                     
-                    Button(action: {}) {
+                    Button(action: {
+                        #if os(macOS)
+                        if let server = currentServer,
+                           let mountPath = SSHFSManager.shared.getMountPath(server) {
+                            NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: mountPath)
+                        }
+                        #endif
+                    }) {
                         Image(systemName: "internaldrive")
                     }
+                    #if os(macOS)
+                    .disabled(currentServer.flatMap { SSHFSManager.shared.getMountPath($0) } == nil)
+                    #endif
                 }
 #if os(iOS)
                 ToolbarItem {

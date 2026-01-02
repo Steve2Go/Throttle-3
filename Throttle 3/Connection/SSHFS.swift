@@ -71,7 +71,8 @@ class SSHFSManager: ObservableObject {
     private func mountKey(for server: Servers) -> String {
         let host = server.sshHost.isEmpty ? server.serverAddress : server.sshHost
         let port = server.sshPort
-        return "\(host):\(port)"
+        let basePath = server.sftpBase.isEmpty ? "/" : server.sftpBase
+        return "\(host):\(port):\(basePath)"
     }
     
     // MARK: - Mount Path Creation
@@ -83,7 +84,20 @@ class SSHFSManager: ObservableObject {
         
         let host = server.sshHost.isEmpty ? server.serverAddress : server.sshHost
         let sanitizedHost = host.replacingOccurrences(of: ":", with: "_")
-        let mountPoint = mountsDir.appendingPathComponent(sanitizedHost)
+        
+        // Include base path in mount directory name if specified
+        var mountDirName = sanitizedHost
+        if !server.sftpBase.isEmpty {
+            let sanitizedPath = server.sftpBase
+                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                .replacingOccurrences(of: "/", with: "-")
+                .replacingOccurrences(of: ":", with: "_")
+            if !sanitizedPath.isEmpty {
+                mountDirName = "\(sanitizedHost)-\(sanitizedPath)"
+            }
+        }
+        
+        let mountPoint = mountsDir.appendingPathComponent(mountDirName)
         
         try? FileManager.default.createDirectory(at: mountsDir, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: mountPoint, withIntermediateDirectories: true)
