@@ -40,7 +40,7 @@ struct TorrentDetailsView: View {
                     }
                 }
                 ToolbarItem(placement: .primaryAction ) {
-                    torrentMenu(torrentID: torrent.id!, stopped: torrent.status?.rawValue == 0 ? true : false)
+                    torrentMenu(torrentID: Set([torrent.id!]), stopped: torrent.status?.rawValue == 0 ? true : false, single: false)
                 }
             }
         }

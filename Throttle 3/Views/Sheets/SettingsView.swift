@@ -27,6 +27,7 @@ struct SettingsView: View {
     @AppStorage("syncLocalServers") var syncLocalServers = true
     @AppStorage("onStartServer") var onstartServer = ""
     @AppStorage("chooseFiles") var chooseFiles = false
+    @AppStorage("showThumbs") var showThumbs = true
     
     
     var body: some View {
@@ -40,6 +41,7 @@ struct SettingsView: View {
                         }
                     }
                     Toggle("Choose Files when Adding", isOn: $chooseFiles)
+                    Toggle("Torrent Thumbnails", isOn: $showThumbs)
                     HStack {
                         #if os(iOS)
                         Text("Refresh Rate:")

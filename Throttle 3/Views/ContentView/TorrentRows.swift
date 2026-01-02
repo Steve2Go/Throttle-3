@@ -40,6 +40,8 @@ struct TorrentRows: View {
     @State private var doFetch = false
     @AppStorage("refreshRate") var refreshRate = "30"
     let keychain = Keychain(service: "com.srgim.throttle3")
+    @AppStorage("showThumbs") var showThumbs = true
+    @State var selectedTorrents: Set<Int> = []
     
     
      //Get the current server based on the store's currentServerID
@@ -123,64 +125,82 @@ struct TorrentRows: View {
                             
                             HStack {
                                 // Thumbnail display
-                                HStack{
-                                    if let progress = torrent.progress, progress < 1.0 {
-                                        // Downloading
-                                        Image("folder")
-                                            .resizable()
-                                            .frame(maxWidth: 55,maxHeight:55)
-                                    } else if let thumbnail = thumbnailManager.getThumbnail(for: torrent) {
-                                        // Has cached thumbnail
+                                if showThumbs {
+                                    HStack{
+                                        if let progress = torrent.progress, progress < 1.0 {
+                                            // Downloading
+                                            Image("folder")
+                                                .resizable()
+                                                .frame(maxWidth: 55,maxHeight:55)
+                                        } else if let thumbnail = thumbnailManager.getThumbnail(for: torrent) {
+                                            // Has cached thumbnail
 #if os(macOS)
-                                        Image(nsImage: thumbnail)
-                                            .resizable()
-                                            .scaledToFill()
+                                            Image(nsImage: thumbnail)
+                                                .resizable()
+                                                .scaledToFill()
 #else
-                                        Image(uiImage: thumbnail)
-                                            .resizable()
-                                            .scaledToFill()
+                                            Image(uiImage: thumbnail)
+                                                .resizable()
+                                                .scaledToFill()
 #endif
-                                    }  else {
-                                        // Complete but no thumbnail yet
-                                        Image("placeholder-black")
-                                            .font(.system(size: 40))
+                                        }  else {
+                                            // Complete but no thumbnail yet
+                                            Image("placeholder-black")
+                                                .font(.system(size: 40))
+                                        }
+                                        
+                                        //status icon
+                                        
+                                        
                                     }
-                                    
-                                    //status icon
-                                    
-                                   
-                                }
-                                .frame(width: 70, height: 70)
-                                //.background(Color.secondary.opacity(0.1))
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                                .onAppear {
-                                    if let hash = torrent.hash {
-                                        visibleTorrentHashes.insert(hash)
-                                        scheduleThumbnailGeneration()
+                                    .frame(width: 70, height: 70)
+                                    //.background(Color.secondary.opacity(0.1))
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                                    .onAppear {
+                                        if let hash = torrent.hash {
+                                            visibleTorrentHashes.insert(hash)
+                                            scheduleThumbnailGeneration()
+                                        }
                                     }
-                                }
-                                .onDisappear {
-                                    if let hash = torrent.hash {
-                                        visibleTorrentHashes.remove(hash)
+                                    .onDisappear {
+                                        if let hash = torrent.hash {
+                                            visibleTorrentHashes.remove(hash)
+                                        }
                                     }
+                                    Image(systemName: thumbnailManager.generatingHashes.contains(torrent.hash ?? "") ? "photo.badge.arrow.down" : iconForStatus(torrent))
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(.white)
+                                        .padding(5)
+                                        .background(Circle().fill(.quaternary))
+                                        .padding(.leading, -35)
+                                        .padding(.top, 40)
+                                        .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive: torrent.status?.rawValue == 2)
+                                        .symbolEffect(.bounce.up.byLayer, options: .repeat(.periodic(delay: 0.0)), isActive: torrent.status?.rawValue != 2 && thumbnailManager.generatingHashes.contains(torrent.hash ?? ""))
+                                } else {
+                                    Image(systemName: iconForStatus(torrent))
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundStyle(.white)
+                                        .padding(8)
+                                        .background(Circle().fill(.quaternary))
+                                        .padding(.top, 5)
+                                        .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive: torrent.status?.rawValue == 2)
+                                        .frame(width:30)
                                 }
-                                Image(systemName: thumbnailManager.generatingHashes.contains(torrent.hash ?? "") ? "photo.badge.arrow.down" : iconForStatus(torrent))
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                    .padding(5)
-                                    .background(Circle().fill(.tint))
-                                    .padding(.leading, -29)
-                                    .padding(.top, 40)
-                                    .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)), isActive: torrent.status?.rawValue == 2)
-                                    .symbolEffect(.bounce.up.byLayer, options: .repeat(.periodic(delay: 0.0)), isActive: torrent.status?.rawValue != 2 && thumbnailManager.generatingHashes.contains(torrent.hash ?? ""))
-                                
                                 Button {
-                                    selectedTorrent = torrent
-                                    showingTorrentDetails = true
+                                    if selectedTorrents.isEmpty {
+                                        selectedTorrent = torrent
+                                        showingTorrentDetails = true
+                                    } else{
+                                        if selectedTorrents.contains(torrent.id!) {
+                                            selectedTorrents.remove(torrent.id!)
+                                        } else{
+                                            selectedTorrents.insert(torrent.id!)
+                                        }
+                                    }
                                 }
                                 label:{
                                     VStack (alignment: .leading) {
-
+                                        
                                         Text(torrent.name ?? "Unknown")
                                             .padding(.leading, 0)
                                             .foregroundColor(.primary)
@@ -236,22 +256,51 @@ struct TorrentRows: View {
                                     }
                                 }
                                 .buttonStyle(.plain)
-                                VStack {
-                                    torrentMenu(torrentID: torrent.id!, stopped: torrent.status?.rawValue == 0 ? true : false)
-                                        .buttonStyle(.plain)
-                                        .padding(.bottom,10)
-                                    Button {
-                                        
-                                    } label: {
-                                        Image(systemName: "star")
-                                    } .foregroundStyle(.primary)
-                                        .buttonStyle(.plain)
+                                if selectedTorrents.isEmpty {
+                                    VStack {
+                                        if let torrentID = torrent.id {
+                                            torrentMenu(torrentID: Set([torrentID]), stopped: torrent.status?.rawValue == 0 ? true : false, single: true)
+                                                .buttonStyle(.plain)
+                                                .padding(.bottom,10)
+                                        }
+                                        Button {
+                                            
+                                        } label: {
+                                            Image(systemName: "star")
+                                        } .foregroundStyle(.primary)
+                                            .buttonStyle(.plain)
+                                    }
                                 }
+                                }
+                                    .padding(.horizontal)
+                            
+                            
+                            .contextMenu {
+                                if let torrentID = torrent.id, selectedTorrents.contains(torrentID) {
+                                    Button {
+                                        selectedTorrents.remove(torrentID)
+                                    } label: {
+                                        Image(systemName: "circle")
+                                        Text("Remove Selection")
+                                    }
+                                } else if let torrentID = torrent.id {
+                                    Button {
+                                        selectedTorrents.insert(torrentID)
+                                    } label: {
+                                        Image(systemName: "checkmark.circle")
+                                        Text("Select")
+                                    }
+                                }
+                                
+                             
                             }
-                        }
-                        
+                            .padding(.vertical, 5)
+                            .background(selectedTorrents.contains(torrent.id!) ? Color.accentColor.opacity(0.2) : Color.clear)
+                            
+                           
+                        } .padding(.vertical, 0)
                     }
-                    .padding()
+                    
                 }
                 .refreshable {
                     Task {
@@ -261,77 +310,99 @@ struct TorrentRows: View {
                 }
             }
         }
-    
+        
         .toolbar {
-            ToolbarItemGroup(placement: .automatic) {
-                
-                if tailscaleManager.isConnecting {
-                    Button(action: {}) {
-                        Image("custom.circle.grid.3x3")
-                            .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
-                            .symbolRenderingMode(.hierarchical)
-                    }
-                } else if connectionManager.isConnecting {
-                    Button(action: {}) {
-                        Image("custom.server.rack.shield")
-                            .symbolEffect(.wiggle.clockwise.byLayer, options: .repeat(.periodic(delay: 0.5)))
-                    }
-                } else if isLoadingTorrents {
-                    Button(action: {}) {
-                        Image(systemName: "arrow.up.arrow.down.square")
-                            .symbolEffect(.bounce.up.byLayer, options: .repeat(.periodic(delay: 0.0)))
-                    }
-                } else {
-#if os(macOS)
-                    Button(action: {
-                        Task {
-                            store.torrents = []
-                            await fetchTorrents()
+            if selectedTorrents.isEmpty {
+                ToolbarItemGroup(placement: .automatic) {
+                    
+                    if tailscaleManager.isConnecting {
+                        Button(action: {}) {
+                            Image("custom.circle.grid.3x3")
+                                .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 0.5)))
+                                .symbolRenderingMode(.hierarchical)
                         }
-                    }) {
-                        Image(systemName: "arrow.clockwise")
-                            .symbolEffect(.rotate, options: .repeat(.periodic(delay: 0.5)), isActive: isLoadingTorrents)
+                    } else if connectionManager.isConnecting {
+                        Button(action: {}) {
+                            Image("custom.server.rack.shield")
+                                .symbolEffect(.wiggle.clockwise.byLayer, options: .repeat(.periodic(delay: 0.5)))
+                        }
+                    } else if isLoadingTorrents {
+                        Button(action: {}) {
+                            Image(systemName: "arrow.up.arrow.down.square")
+                                .symbolEffect(.bounce.up.byLayer, options: .repeat(.periodic(delay: 0.0)))
+                        }
+                    } else {
+#if os(macOS)
+                        Button(action: {
+                            Task {
+                                store.torrents = []
+                                await fetchTorrents()
+                            }
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                                .symbolEffect(.rotate, options: .repeat(.periodic(delay: 0.5)), isActive: isLoadingTorrents)
+                        }
+#endif
+                        
+                    }
+#if os(iOS)
+                    Menu {
+                        
+                        Button(action: {}) {
+                            Label("Add Torrent", systemImage: "plus")
+                        }
+                        
+                        Button(action: {
+                            // Create action
+                        }) {
+                            Label("Create Torrent", systemImage: "document.badge.plus")
+                        }
+                        
+                        
+                    } label: {
+                        Image(systemName: "plus")
                     }
 #endif
                     
-                }
-#if os(iOS)
-                Menu {
                     
                     Button(action: {}) {
-                        Label("Add Torrent", systemImage: "plus")
+                        Image(systemName: "internaldrive")
                     }
+                }
+#if os(iOS)
+                ToolbarItem {
                     
                     Button(action: {
-                        // Create action
+                        dismiss()
                     }) {
-                        Label("Create Torrent", systemImage: "document.badge.plus")
+                        Image(systemName: "ellipsis.circle")
                     }
-                    
-                    
-                } label: {
-                    Image(systemName: "plus")
                 }
+                
 #endif
                 
-                
-                Button(action: {}) {
-                    Image(systemName: "internaldrive")
+            } else {
+                ToolbarItemGroup(placement: .automatic) {
+                    
+                    if selectedTorrents.count != store.torrents.count {
+                        Button {
+                            selectedTorrents = Set(store.torrents.compactMap { $0.id })
+                        } label: {
+                            Image(systemName: "checkmark.circle")
+                            Text("All")
+                        }
+                    }
+                    if !selectedTorrents.isEmpty {
+                        Button {
+                            selectedTorrents.removeAll()
+                        } label: {
+                            Image(systemName: "xmark.circle")
+                            Text("Cancel")
+                        }
+                    }
+                    torrentMenu(torrentID: selectedTorrents, stopped: false, single: false)
                 }
             }
-#if os(iOS)
-            ToolbarItem {
-                
-                Button(action: {
-                    dismiss()
-                }) {
-                    Image(systemName: "ellipsis.circle")
-                }
-            }
-            
-#endif
-            
-            
             
         }
         .sheet(isPresented: $showingTorrentDetails) {
@@ -342,7 +413,7 @@ struct TorrentRows: View {
 #endif
             }
         }
-        .navigationTitle(currentServer?.name ?? "")
+        .navigationTitle(selectedTorrents.isEmpty ? currentServer?.name ?? "" : "Selection")
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif

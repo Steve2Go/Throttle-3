@@ -56,7 +56,7 @@ class TunnelManager: ObservableObject {
     // MARK: - Public Interface
     
     func startTunnel(id: String, config: SSHTunnelConfig) async {
-        stopTunnel(id: id)
+        await stopTunnel(id: id)
         // Initialize tunnel state if it doesn't exist
         if tunnels[id] == nil {
             tunnels[id] = TunnelState()
@@ -124,7 +124,7 @@ class TunnelManager: ObservableObject {
         }
     }
     
-    func stopTunnel(id: String) {
+    func stopTunnel(id: String) async {
         guard tunnels[id] != nil else {
             print("⚠️ Tunnel [\(id)] not found")
             return
@@ -139,6 +139,9 @@ class TunnelManager: ObservableObject {
         } else {
             print("✓ SSH tunnel [\(id)] stopped successfully")
         }
+        while await checkTunnelConnectivity(id: id){
+            try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+        }
         
         // Remove the tunnel state
         tunnels.removeValue(forKey: id)
@@ -149,7 +152,9 @@ class TunnelManager: ObservableObject {
     
     func stopAllTunnels() {
         for id in tunnels.keys {
-            stopTunnel(id: id)
+            Task {
+                await stopTunnel(id: id)
+            }
         }
     }
     

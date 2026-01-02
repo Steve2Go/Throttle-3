@@ -8,15 +8,18 @@ import SwiftUI
 import Transmission
 
 struct torrentMenu: View {
-    let torrentID: Int
+    let torrentID: Set<Int>
     let stopped: Bool
+    let single: Bool
     var body: some View {
         Menu {
-            Button {
-                
-            } label: {
-                Label("Files", image:"custom.folder.badge.arrow.down")
-                    .symbolRenderingMode(.monochrome)
+            if single {
+                Button {
+                    
+                } label: {
+                    Label("Files", image:"custom.folder.badge.arrow.down")
+                        .symbolRenderingMode(.monochrome)
+                }
             }
             Button {
                 
@@ -25,14 +28,16 @@ struct torrentMenu: View {
                     .symbolRenderingMode(.monochrome)
             }
             
-            if stopped {
+            if (stopped || single == false) {
                 Button {
                     
                 } label: {
                     Label("Start", systemImage: "play")
                         .symbolRenderingMode(.monochrome)
                 }
-            } else {
+            }
+            
+            if (!stopped || single == false) {
                 
                 Button {
                     
@@ -54,11 +59,13 @@ struct torrentMenu: View {
                 Label("Rename", systemImage: "dots.and.line.vertical.and.cursorarrow.rectangle")
                     .symbolRenderingMode(.monochrome)
             }
-            Button {
-                
-            } label: {
-                Label("Delete", systemImage: "trash")
-                    .symbolRenderingMode(.monochrome)
+            if single {
+                Button {
+                    
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                        .symbolRenderingMode(.monochrome)
+                }
             }
             
         } label: {

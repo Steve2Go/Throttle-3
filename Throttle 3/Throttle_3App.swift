@@ -126,9 +126,6 @@ struct Throttle_3App: App {
                             // Disconnect from old server
                             connectionManager.disconnect()
             
-                            // Wait for disconnect to complete
-                            try? await Task.sleep(nanoseconds: 500_000_000) // .5 second
-            
                             // Wait for currentServerID to clear
                             while connectionManager.currentServerID != nil {
                                 try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
@@ -213,11 +210,16 @@ struct Throttle_3App: App {
             return
         }
         
-        connectionManager.disconnect()
+        //connectionManager.disconnect()
+        
         Task {
             //try? await Task.sleep(nanoseconds: 500_000_000) // .5 second after last activity
             await connectionManager.connect(server: currentServer)
-            try? await Task.sleep(nanoseconds: 500_000_000) // .5 second after last activity
+            //try? await Task.sleep(nanoseconds: 500_000_000) // .5 second after last activity
+            while connectionManager.isConnected == false {
+                try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+            }
+            //try? await Task.sleep(nanoseconds: 900_000_000) // 0.2 seconds
             store.isConnected = true
         }
     }

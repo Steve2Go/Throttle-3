@@ -117,6 +117,7 @@ class ConnectionManager: ObservableObject {
             }
             
             if allActive {
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
                 isConnected = true
                 isConnecting = false
                 print("✓ ConnectionManager: All tunnels are active and ports are listening")
@@ -137,6 +138,7 @@ class ConnectionManager: ObservableObject {
     func disconnect() {
         Task {
             tunnelManager.stopAllTunnels()
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.2 seconds
             //await tailscaleManager.disconnect()
             isConnected = false
             isConnecting = false
@@ -153,12 +155,7 @@ class ConnectionManager: ObservableObject {
 //            return
 //        }
         
-        // Check and install ffmpeg if needed (before starting tunnel)
-        if !server.ffmpegInstalled {
-            await checkAndInstallFfmpeg(server: server)
-        } else{
-            print("✓ ffmpeg already installed, skipping check")
-        }
+        
         let credentials = loadCredentials(for: server)
         
         // Use port + 8000 for local web tunnel (e.g., 80 -> 8080, 9091 -> 17091)
@@ -179,6 +176,12 @@ class ConnectionManager: ObservableObject {
             print("✓ Web tunnel connected on port \(state.localPort ?? 0)")
         } else if let state = tunnelManager.getTunnelState(id: "web"), let error = state.errorMessage {
             print("❌ Web tunnel failed: \(error)")
+        }
+        // Check and install ffmpeg if needed (before starting tunnel)
+        if !server.ffmpegInstalled {
+            await checkAndInstallFfmpeg(server: server)
+        } else{
+            print("✓ ffmpeg already installed, skipping check")
         }
     }
     
