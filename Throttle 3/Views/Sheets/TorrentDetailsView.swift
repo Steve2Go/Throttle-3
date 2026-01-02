@@ -40,7 +40,15 @@ struct TorrentDetailsView: View {
                     }
                 }
                 ToolbarItem(placement: .primaryAction ) {
-                    torrentMenu(torrentID: Set([torrent.id!]), stopped: torrent.status?.rawValue == 0 ? true : false, single: false)
+                    Menu {
+                        torrentMenu(torrentID: Set([torrent.id!]), stopped: torrent.status?.rawValue == 0 ? true : false, single: true)
+                    } label: {
+                        #if os(iOS)
+                        Image(systemName: "ellipsis.circle")
+                        #else
+                        Text("Torrent Actions")
+                        #endif
+                    }
                 }
             }
         }

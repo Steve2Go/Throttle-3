@@ -124,6 +124,22 @@ struct TorrentRows: View {
                             
                             HStack {
                                 // Thumbnail display
+                                if !selectedTorrents.isEmpty {
+                                    Button {
+                                        if selectedTorrents.contains(torrent.id!) {
+                                            selectedTorrents.remove(torrent.id!)
+                                        } else{
+                                            selectedTorrents.insert(torrent.id!)
+                                        }
+                                    } label: {
+                                        Image(systemName: selectedTorrents.contains(torrent.id!) ? "checkmark.circle" : "circle")
+                                        #if os(iOS)
+                                            .font(.system(size: 30))
+                                        #endif
+                                    } .buttonStyle(.plain)
+                                        .symbolEffect(.wiggle.clockwise.byLayer, options: .repeat(.continuous))
+                                    
+                                }
                                 if showThumbs {
                                     HStack{
                                         if let progress = torrent.progress, progress < 1.0 {
@@ -204,72 +220,63 @@ struct TorrentRows: View {
                                             .padding(.leading, 0)
                                             .foregroundColor(.primary)
                                         
-                                        //status
-                                        switch torrent.status?.rawValue {
-                                        case 0:
-                                            ProgressView(value: torrent.progress)
-                                                .tint(.red)
-                                        case 2:
-                                            ProgressView(value: torrent.progress)
-                                                .tint(.yellow)
-                                        case 4:
-                                            ProgressView(value: torrent.progress)
-                                                .tint(.blue)
-                                        case 6:
-                                            ProgressView(value: torrent.progress)
-                                                .tint(.green)
-                                            //                        case 6:
-                                            //                            ProgressView(value: torrent.progress)
-                                            //                                .tint(.orange)
-                                        default:
-                                            ProgressView(value: torrent.progress)
-                                                .tint(.gray)
-                                        }
-                                        HStack {
+                                            //status
+                                            VStack {
+                                                switch torrent.status?.rawValue {
+                                                case 0:
+                                                    ProgressView(value: torrent.progress)
+                                                        .tint(.red)
+                                                case 2:
+                                                    ProgressView(value: torrent.progress)
+                                                        .tint(.yellow)
+                                                case 4:
+                                                    ProgressView(value: torrent.progress)
+                                                        .tint(.blue)
+                                                case 6:
+                                                    ProgressView(value: torrent.progress)
+                                                        .tint(.green)
+                                                    //                        case 6:
+                                                    //                            ProgressView(value: torrent.progress)
+                                                    //                                .tint(.orange)
+                                                default:
+                                                    ProgressView(value: torrent.progress)
+                                                        .tint(.gray)
+                                                }
+                                                
+                                                
+                                                HStack {
+                                                    
+                                                    if torrent.progress == 1{
+                                                        Image(systemName: "internaldrive")
+                                                            .foregroundStyle(.secondary)
+                                                            .font(.system(size: 12, weight: .semibold))
+                                                        Text("\(formatBytes(torrent.size ?? 0))")
+                                                            .font(.caption)
+                                                            .foregroundStyle(.secondary)
+                                                    } else {
+                                                        Image(systemName: "arrow.up.arrow.down")
+                                                            .foregroundStyle(.secondary)
+                                                            .font(.system(size: 12, weight: .semibold))
+                                                        Text("\(formatBytes(torrent.bytesValid ?? 0).split(separator: " ")[0]) of \(formatBytes(torrent.size ?? 0))")
+                                                            .font(.caption)
+                                                            .foregroundStyle(.secondary)
+                                                    }
+                                                    Spacer()
+                                                    Image(systemName: "plus.app")
+                                                        .foregroundStyle(.secondary)
+                                                        .font(.system(size: 12, weight: .semibold))
+                                                    if let dateAdded = torrent.dateAdded {
+                                                        Text(formatDate( dateAdded))
+                                                            .font(.caption)
+                                                            .foregroundStyle(.secondary)
+                                                    }
+                                                }
                                             
-                                            if torrent.progress == 1{
-                                                Image(systemName: "internaldrive")
-                                                    .foregroundStyle(.secondary)
-                                                    .font(.system(size: 12, weight: .semibold))
-                                                Text("\(formatBytes(torrent.size ?? 0))")
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                            } else {
-                                                Image(systemName: "arrow.up.arrow.down")
-                                                    .foregroundStyle(.secondary)
-                                                    .font(.system(size: 12, weight: .semibold))
-                                                Text("\(formatBytes(torrent.bytesValid ?? 0).split(separator: " ")[0]) of \(formatBytes(torrent.size ?? 0))")
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                            Spacer()
-                                            Image(systemName: "plus.app")
-                                                .foregroundStyle(.secondary)
-                                                .font(.system(size: 12, weight: .semibold))
-                                            if let dateAdded = torrent.dateAdded {
-                                                Text(formatDate( dateAdded))
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                            }
+                                            
                                         }
                                     }
                                 }
                                 .buttonStyle(.plain)
-                                if selectedTorrents.isEmpty {
-                                    VStack {
-                                        if let torrentID = torrent.id {
-                                            torrentMenu(torrentID: Set([torrentID]), stopped: torrent.status?.rawValue == 0 ? true : false, single: true)
-                                                .buttonStyle(.plain)
-                                                .padding(.bottom,10)
-                                        }
-                                        Button {
-                                            
-                                        } label: {
-                                            Image(systemName: "star")
-                                        } .foregroundStyle(.primary)
-                                            .buttonStyle(.plain)
-                                    }
-                                }
                                 }
                                     .padding(.horizontal)
                             
@@ -289,12 +296,11 @@ struct TorrentRows: View {
                                         Image(systemName: "checkmark.circle")
                                         Text("Select")
                                     }
+                                    torrentMenu(torrentID: Set([torrent.id!]), stopped: torrent.status?.rawValue == 0 ? true : false, single: true)
                                 }
-                                
-                             
                             }
                             .padding(.vertical, 5)
-                            .background(selectedTorrents.contains(torrent.id!) ? Color.accentColor.opacity(0.2) : Color.clear)
+                            //.background(selectedTorrents.contains(torrent.id!) ? Color.accentColor.opacity(0.2) : Color.clear)
                             
                            
                         } .padding(.vertical, 0)
@@ -399,7 +405,11 @@ struct TorrentRows: View {
                             Text("Cancel")
                         }
                     }
-                    torrentMenu(torrentID: selectedTorrents, stopped: false, single: false)
+                    Menu {
+                        torrentMenu(torrentID: selectedTorrents, stopped: false, single: false)
+                    } label: {
+                        Image("custom.ellipsis.circle.badge.checkmark")
+                    }
                 }
             }
             
@@ -428,11 +438,17 @@ struct TorrentRows: View {
             cancellables.removeAll()
             doFetch = false
         }
-        .onChange(of: store.isConnected) {
-            if store.isConnected {
-                Task {
-                    await fetchTorrents()
-                }
+        // .onChange(of: store.isConnected) {
+        //     if store.isConnected {
+        //         Task {
+        //             await fetchTorrents()
+        //         }
+        //     }
+        // }
+        .onAppear {
+            // Fetch torrents when view appears
+            Task {
+                await fetchTorrents()
             }
         }
 

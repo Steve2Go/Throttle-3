@@ -152,6 +152,9 @@ class TunnelManager: ObservableObject {
         for id in tunnels.keys {
             stopTunnel(id: id)
         }
+        Task {
+            await tailscaleManager.disconnect()
+        }
     }
     
     /// Lazy tunnel creation - ensures tunnel exists for server, creating if needed
@@ -159,9 +162,17 @@ class TunnelManager: ObservableObject {
     func ensureTunnel(for server: Servers) async -> Int? {
         let tunnelKey = "\(server.serverAddress):\(server.serverPort)"
         
-        // Already have an active tunnel? Return its port
+        // Already have an active tunnel? Verify it's still alive before returning
         if let existing = tunnels[tunnelKey], existing.isActive, let port = existing.localPort {
-            return port
+            // Double-check with the Go library that tunnel is actually alive
+            if await checkTunnelConnectivity(id: tunnelKey) {
+                return port
+            } else {
+                // Tunnel died - mark as inactive and recreate
+                print("⚠️ Tunnel [\(tunnelKey)] was marked active but library reports it's dead - recreating")
+                tunnels[tunnelKey]?.isActive = false
+                // Fall through to create new tunnel
+            }
         }
         
         // If tunnel is connecting, wait for it
@@ -187,6 +198,52 @@ class TunnelManager: ObservableObject {
             print("⚠️ Tunnel [\(tunnelKey)] timed out while connecting")
             return nil
         }
+        
+        // Check if server needs Tailscale and connect if needed
+        #if os(iOS)
+        if server.useTailscale {
+            // First verify current state with the backend
+            if tailscaleManager.isConnected {
+                await tailscaleManager.checkConnectionStatus()
+            }
+            
+            if !tailscaleManager.isConnected && !tailscaleManager.isConnecting {
+                print("🔌 Server requires Tailscale, connecting...")
+                await tailscaleManager.connect()
+                
+                // Wait for Tailscale to connect
+                var tsAttempts = 0
+                let maxTsAttempts = 60 // 60 * 500ms = 30 seconds max
+                
+                while !tailscaleManager.isConnected && tsAttempts < maxTsAttempts {
+                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                    tsAttempts += 1
+                }
+                
+                if !tailscaleManager.isConnected {
+                    print("⚠️ Tailscale connection timed out")
+                    return nil
+                }
+                
+                print("✓ Tailscale connected for tunnel")
+            } else if tailscaleManager.isConnecting {
+                // Wait for existing connection attempt
+                print("⏳ Waiting for existing Tailscale connection...")
+                var tsAttempts = 0
+                let maxTsAttempts = 60
+                
+                while tailscaleManager.isConnecting && tsAttempts < maxTsAttempts {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    tsAttempts += 1
+                }
+                
+                if !tailscaleManager.isConnected {
+                    print("⚠️ Tailscale connection failed")
+                    return nil
+                }
+            }
+        }
+        #endif
         
         // Need to create tunnel
         let config = makeConfig(for: server)

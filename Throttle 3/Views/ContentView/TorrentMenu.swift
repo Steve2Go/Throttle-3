@@ -12,7 +12,7 @@ struct torrentMenu: View {
     let stopped: Bool
     let single: Bool
     var body: some View {
-        Menu {
+        
             if single {
                 Button {
                     
@@ -68,13 +68,6 @@ struct torrentMenu: View {
                 }
             }
             
-        } label: {
-
-            Image(systemName: "ellipsis.circle")
-                
-        }
-        .foregroundStyle(.primary)
-        
-    }
+        } 
     
 }

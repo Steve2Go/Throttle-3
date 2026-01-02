@@ -97,25 +97,21 @@ struct Throttle_3App: App {
                 .environmentObject(store)
                 .environmentObject(networkMonitor)
                 .onAppear {
-                    if syncServers == false {
-                        connectWithTailscale()
-                    } else{
+                    if syncServers == true {
                         ///wait for icloud update
                         observeCloudKitActivity()
+                    } else {
+                        // Mark as ready - connections will be lazy
+                        store.isConnected = true
                     }
                 }
             ///Connect servers if known
                 .onChange(of: hasCompletedInitialSync) { _, completed in
                     if completed {
-                        connectWithTailscale()
+                        // Mark as ready - connections will be lazy
+                        store.isConnected = true
                     }
                 }
-                    ///Tailscale Up
-                    .onChange(of: TSmanager.isConnected) {
-                        if TSmanager.isConnected {
-                            connectServer()
-                        }
-                    }
             
                     .onChange(of: store.currentServerID) { oldID, newID in
                         // Just clear torrents - tunnel will be created on demand
@@ -123,33 +119,32 @@ struct Throttle_3App: App {
                         store.isConnected = false
                     }
             #if os(iOS)
-                .onChange(of: scenePhase) {
-                    ///opened from BG
-                    if scenePhase == .active {
-                        // Tunnels will recreate on demand
-                        connectWithTailscale()
-                    } else {
-                        // Background - stop all tunnels
-                        Task {
-                            TunnelManager.shared.stopAllTunnels()
-                            await TSmanager.disconnect()
-                            store.isConnected = false
-                        }
-//                        disconnectTask = Task {
-//                            try? await Task.sleep(nanoseconds: 10_000_000_000)
-//                            guard !Task.isCancelled else { return }
-//                            
-//                        }
-                    }
-                }
-                .onChange(of: networkMonitor.gateways) {
-                    ///network changed
-                    if scenePhase == .active {
-                        store.isConnected = false
-                        connectWithTailscale()
-                    }
+//                 .onChange(of: scenePhase) {
+//                     ///opened from BG
+//                     if scenePhase == .active {
+//                         // Tunnels will recreate on demand
+//                         store.isConnected = true
+//                     } else {
+//                         // Background - stop all tunnels
+//                         Task {
+//                             TunnelManager.shared.stopAllTunnels()
+//                             await TSmanager.disconnect()
+//                             store.isConnected = false
+//                         }
+// //                        disconnectTask = Task {
+// //                            try? await Task.sleep(nanoseconds: 10_000_000_000)
+// //                            guard !Task.isCancelled else { return }
+// //                            
+// //                        }
+//                     }
+//                 }
+                // .onChange(of: networkMonitor.gateways) {
+                //     ///network changed
+                //     if scenePhase == .active {
+                //         store.isConnected = true
+                //     }
                     
-                }
+                // }
             #endif  
         } 
         .modelContainer(sharedModelContainer)
@@ -172,35 +167,7 @@ struct Throttle_3App: App {
         #endif
     }
     
-    private func connectWithTailscale() {
-        // Check if any server has Tailscale enabled
-        let descriptor = FetchDescriptor<Servers>()
-        let servers = try? sharedModelContainer.mainContext.fetch(descriptor)
-        let hasTailscaleServer = servers?.contains(where: { $0.useTailscale }) ?? false
-        
-        if hasTailscaleServer && !TSmanager.isConnected && !TSmanager.isConnecting {
-            Task {
-                await TSmanager.connect()
-            }
-        } else {
-            if !TSmanager.isConnecting {
-                connectServer()
-            }
-        }
-    }
-    
-    private func connectServer(){
-        // Fetch servers from model context
-        let descriptor = FetchDescriptor<Servers>()
-        guard let servers = try? sharedModelContainer.mainContext.fetch(descriptor),
-              let currentServerID = store.currentServerID,
-              let currentServer = servers.first(where: { $0.id == currentServerID }) else {
-            return
-        }
-        
-        // Just mark as connected - tunnel will be created on first use
-        store.isConnected = true
-    }
+
     
     private func observeCloudKitActivity() {
         // Observe CloudKit activity notifications

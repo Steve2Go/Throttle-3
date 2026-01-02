@@ -49,21 +49,15 @@
 			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
 			attributesByRelativePath = {
 				Frameworks/MobileVLCKit.xcframework = (CodeSignOnCopy, RemoveHeadersOnCopy, );
-				Frameworks/SshLib_iOS.xcframework = (CodeSignOnCopy, RemoveHeadersOnCopy, );
-				Frameworks/SshLib_macOS.xcframework = (CodeSignOnCopy, RemoveHeadersOnCopy, );
 				Frameworks/TailscaleKit.framework = (CodeSignOnCopy, RemoveHeadersOnCopy, );
 			};
 			buildPhase = E7E83AC92EFA11E30000B55B /* Embed Frameworks */;
 			membershipExceptions = (
 				Frameworks/MobileVLCKit.xcframework,
-				Frameworks/SshLib_iOS.xcframework,
-				Frameworks/SshLib_macOS.xcframework,
 				Frameworks/TailscaleKit.framework,
 			);
 			platformFiltersByRelativePath = {
 				Frameworks/MobileVLCKit.xcframework = (ios, );
-				Frameworks/SshLib_iOS.xcframework = (ios, );
-				Frameworks/SshLib_macOS.xcframework = (macos, );
 				Frameworks/TailscaleKit.framework = (ios, );
 			};
 		};
@@ -223,6 +217,7 @@
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
+					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Throttle 3/Info.plist";
@@ -276,6 +271,7 @@
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
+					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
 					"$(PROJECT_DIR)/Throttle\\ 3/Frameworks",
