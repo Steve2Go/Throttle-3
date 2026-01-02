@@ -196,12 +196,6 @@ class ConnectionManager: ObservableObject {
 //            return
 //        }
         
-        // Check and install ffmpeg if needed (before starting tunnel)
-        if !server.ffmpegInstalled {
-            await checkAndInstallFfmpeg(server: server)
-        } else{
-            print("✓ ffmpeg already installed, skipping check")
-        }
         let credentials = loadCredentials(for: server)
         
         // Use port + 8000 for local web tunnel (e.g., 80 -> 8080, 9091 -> 17091)
@@ -224,80 +218,6 @@ class ConnectionManager: ObservableObject {
             print("❌ Web tunnel failed: \(error)")
         }
     }
-    
-    // MARK: - FFmpeg Installation
-    
-    private func checkAndInstallFfmpeg(server: Servers) async {
-        print("🔍 Checking for ffmpeg installation...")
-        
-        // Check if ffmpeg exists
-        let checkCommand = "test -f ~/.throttle3/bin/ffmpeg && echo 'exists' || echo 'not found'"
-        let ffmpegExists = try? await sshManager.executeCommand(
-            server: server,
-            command: checkCommand,
-            timeout: 5,
-            useTunnel: false
-        )
-        
-        if ffmpegExists?.contains("not found") == true {
-            print("📥 ffmpeg not installed, downloading...")
-            
-            // Install command that detects OS/arch and downloads ffmpeg
-            let installCommand = """
-            mkdir -p ~/.throttle3/bin && cd /tmp && \
-            OS=$(uname -s | tr '[:upper:]' '[:lower:]') && \
-            ARCH=$(uname -m) && \
-            if [ "$OS" = "linux" ]; then
-                case "$ARCH" in
-                    x86_64) FFMPEG_ARCH="amd64" ;;
-                    aarch64) FFMPEG_ARCH="arm64" ;;
-                    armv7l) FFMPEG_ARCH="armhf" ;;
-                    armv6l) FFMPEG_ARCH="armel" ;;
-                    *) echo "Unsupported arch: $ARCH" && exit 1 ;;
-                esac
-                wget -q https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-${FFMPEG_ARCH}-static.tar.xz -O ffmpeg.tar.xz && \
-                tar -xJf ffmpeg.tar.xz && \
-                FFMPEG_DIR=$(find . -type d -name "ffmpeg-*-${FFMPEG_ARCH}-static" | head -n 1) && \
-                mv $FFMPEG_DIR/ffmpeg ~/.throttle3/bin/ffmpeg && \
-                chmod +x ~/.throttle3/bin/ffmpeg && \
-                rm -rf ffmpeg* && \
-                echo "✓ Linux ffmpeg installed"
-            elif [ "$OS" = "darwin" ]; then
-                curl -sL https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip -o ffmpeg.zip && \
-                unzip -q ffmpeg.zip && \
-                mv ffmpeg ~/.throttle3/bin/ffmpeg && \
-                chmod +x ~/.throttle3/bin/ffmpeg && \
-                rm -rf ffmpeg* && \
-                echo "✓ macOS ffmpeg installed"
-            else
-                echo "Unsupported OS: $OS" && exit 1
-            fi
-            """
-            
-            do {
-                print("🔧 Installing ffmpeg...")
-                let result = try await sshManager.executeCommand(
-                    server: server,
-                    command: installCommand,
-                    timeout: 180,
-                    useTunnel: false
-                )
-                
-                print("✓ ffmpeg installed: \(result)")
-                
-                // Mark as installed in the server model
-                server.ffmpegInstalled = true
-            } catch {
-                print("❌ Failed to install ffmpeg: \(error)")
-            }
-        } else {
-            print("✓ ffmpeg already installed")
-            // Mark as installed to skip future checks
-            server.ffmpegInstalled = true
-        }
-    }
-    
-
     
     // MARK: - Public Getters
     
