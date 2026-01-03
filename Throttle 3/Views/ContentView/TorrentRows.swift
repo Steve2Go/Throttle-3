@@ -39,6 +39,7 @@ struct TorrentRows: View {
     @State private var selectedTorrent: Torrent?
     @State private var showFilesPicker = false
     @State private var selectedTorrentForFiles: Int?
+    @State private var showFileBrowser = false
     @Query var servers: [Servers]
     @State private var doFetch = false
     @AppStorage("refreshRate") var refreshRate = "30"
@@ -254,14 +255,6 @@ struct TorrentRows: View {
                                                         Image(systemName: "internaldrive")
                                                             .foregroundStyle(.secondary)
                                                             .font(.system(size: 12, weight: .semibold))
-                                                            #if os(macOS)
-                                                            .onTapGesture {
-                                                                if let server = currentServer,
-                                                                   let mountPath = SSHFSManager.shared.getMountPath(server) {
-                                                                    NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: mountPath)
-                                                                }
-                                                            }
-                                                            #endif
                                                         Text("\(formatBytes(torrent.size ?? 0))")
                                                             .font(.caption)
                                                             .foregroundStyle(.secondary)
@@ -460,6 +453,9 @@ struct TorrentRows: View {
             }
             
         }
+        .sheet(isPresented: $showFileBrowser) {
+    FileBrowserView(server: currentServer)
+}
         .sheet(isPresented: $showingTorrentDetails) {
             if let torrent = selectedTorrent, let currentServer = currentServer {
                 TorrentDetailsView(torrent: torrent, server: currentServer)
