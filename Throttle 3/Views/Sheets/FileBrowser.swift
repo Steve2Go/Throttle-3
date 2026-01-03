@@ -74,11 +74,16 @@ struct DirectoryContentView: View {
     @State private var files: [SFTPFileInfo] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var showVideoPlayer = false
+    @State private var videoPlayerURL: URL?
     @AppStorage("fileBrowserIconView") var icons: Bool = false
     @AppStorage("fileBrowserIconFoldersFirst") var foldersFirst: Bool = true
     @AppStorage("fileBrowserSortBy") var sortBy: String = "name"
     
     private let sftpManager = SFTPManager.shared
+    #if os(iOS)
+    private let streamServer = StreamServerManager.shared
+    #endif
     
     var body: some View {
         Group {
@@ -206,13 +211,18 @@ struct DirectoryContentView: View {
                                 }
                                 .buttonStyle(.plain)
                             } else {
-                                FileRowView(
-                                    name: file.name,
-                                    isDirectory: false,
-                                    size: file.size,
-                                    modifiedTime: file.modifiedTime,
-                                    isParent: false
-                                )
+                                Button {
+                                    handleFileTap(file)
+                                } label: {
+                                    FileRowView(
+                                        name: file.name,
+                                        isDirectory: false,
+                                        size: file.size,
+                                        modifiedTime: file.modifiedTime,
+                                        isParent: false
+                                    )
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -232,13 +242,17 @@ struct DirectoryContentView: View {
                                 )
                             }
                         } else {
-                            FileRowView(
-                                name: file.name,
-                                isDirectory: false,
-                                size: file.size,
-                                modifiedTime: file.modifiedTime,
-                                isParent: false
-                            )
+                            Button {
+                                handleFileTap(file)
+                            } label: {
+                                FileRowView(
+                                    name: file.name,
+                                    isDirectory: false,
+                                    size: file.size,
+                                    modifiedTime: file.modifiedTime,
+                                    isParent: false
+                                )
+                            }
                         }
                     }
                 }
@@ -248,6 +262,13 @@ struct DirectoryContentView: View {
         .refreshable {
             await loadDirectory()
         }
+        #if os(iOS)
+        .fullScreenCover(isPresented: $showVideoPlayer) {
+            if let url = videoPlayerURL {
+                VideoPlayerSheet(url: url)
+            }
+        }
+        #endif
     }
     
     private var sortedFiles: [SFTPFileInfo] {
@@ -288,6 +309,59 @@ struct DirectoryContentView: View {
         
         isLoading = false
     }
+    
+    private func handleFileTap(_ file: SFTPFileInfo) {
+        #if os(iOS)
+        // Check if it's a video file
+        if isVideoFile(file.name) {
+            // Ensure stream server is started
+            if !streamServer.isActive {
+                Task {
+                    do {
+                        try await streamServer.startServer(for: server)
+                        print("✓ Stream server started for video playback")
+                        openVideoPlayer(file)
+                    } catch {
+                        print("❌ Failed to start stream server: \(error)")
+                    }
+                }
+            } else {
+                openVideoPlayer(file)
+            }
+        } else {
+            // For non-video files, you could implement download or other actions
+            print("📄 Tapped file: \(file.name)")
+        }
+        #endif
+    }
+    
+    #if os(iOS)
+    private func openVideoPlayer(_ file: SFTPFileInfo) {
+        // Build relative path from sftpBase
+        let sftpBase = server.sftpBase.isEmpty ? "/" : server.sftpBase
+        var relativePath = path
+        if path.hasPrefix(sftpBase) && sftpBase != "/" {
+            relativePath = String(path.dropFirst(sftpBase.count))
+        }
+        if !relativePath.hasSuffix("/") {
+            relativePath += "/"
+        }
+        relativePath += file.name
+        
+        // Get streaming URL
+        if let streamURL = streamServer.getStreamURL(for: relativePath) {
+            videoPlayerURL = streamURL
+            showVideoPlayer = true
+            print("🎬 Opening video player for: \(relativePath)")
+        }
+    }
+    
+    private func isVideoFile(_ name: String) -> Bool {
+        let videoExtensions = ["mp4", "mkv", "avi", "mov", "m4v", "wmv", "flv", "webm", "ts"]
+        let ext = (name as NSString).pathExtension.lowercased()
+        return videoExtensions.contains(ext)
+    }
+    #endif
 }
 
 // MARK: - File Row View

@@ -27,6 +27,9 @@ struct TorrentRows: View {
     @ObservedObject private var tailscaleManager = TailscaleManager.shared
     @ObservedObject private var tunnelManager = TunnelManager.shared
     @ObservedObject private var thumbnailManager = TorrentThumbnailManager.shared
+    #if os(iOS)
+    @ObservedObject private var streamServer = StreamServerManager.shared
+    #endif
     @AppStorage("currentFilter") private var currentFilter: String = "dateAdded"
     @AppStorage("currentStatusFilter") private var currentStatusFilter: String = "all"
     @State private var searchText: String = ""
@@ -39,6 +42,8 @@ struct TorrentRows: View {
     @State private var selectedTorrent: Torrent?
     @State private var showFilesPicker = false
     @State private var selectedTorrentForFiles: Int?
+    @State private var showVideoPlayer = false
+    @State private var videoPlayerURL: URL?
     @Query var servers: [Servers]
     @State private var doFetch = false
     @AppStorage("refreshRate") var refreshRate = "30"
@@ -489,6 +494,13 @@ struct TorrentRows: View {
                     #endif
             }
         }
+        #if os(iOS)
+        .fullScreenCover(isPresented: $showVideoPlayer) {
+            if let url = videoPlayerURL {
+                VideoPlayerSheet(url: url)
+            }
+        }
+        #endif
         .navigationTitle(selectedTorrents.isEmpty ? currentServer?.name ?? "" : "Selection")
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -803,11 +815,46 @@ struct TorrentRows: View {
             }
         }
         #else
-        // Open in file browser on iOS
-        // TODO: For video files, implement video player
-        store.fileBrowserPath = relativePath
-        store.fileBrowserCover = true
-        print("📂 Opening \(isVideoFile(torrentName) ? "video" : "folder"): \(relativePath) (fullPath: \(fullPath))")
+        // iOS: Use stream server for video files
+        if isVideoFile(torrentName) {
+            guard let currentServer = currentServer else {
+                print("⚠️ No current server selected")
+                return
+            }
+            
+            // Ensure stream server is started
+            if !streamServer.isActive {
+                Task {
+                    do {
+                        try await streamServer.startServer(for: currentServer)
+                        print("✓ Stream server started for video playback")
+                    } catch {
+                        print("❌ Failed to start stream server: \(error)")
+                        // Fallback to file browser
+                        store.fileBrowserPath = relativePath
+                        store.fileBrowserCover = true
+                        return
+                    }
+                }
+            }
+            
+            // Get streaming URL
+            if let streamURL = streamServer.getStreamURL(for: relativePath) {
+                videoPlayerURL = streamURL
+                showVideoPlayer = true
+                print("🎬 Opening video player for: \(relativePath)")
+            } else {
+                // Fallback to file browser if streaming unavailable
+                store.fileBrowserPath = relativePath
+                store.fileBrowserCover = true
+                print("📂 Opening file browser (streaming unavailable): \(relativePath)")
+            }
+        } else {
+            // Open in file browser for non-video files
+            store.fileBrowserPath = relativePath
+            store.fileBrowserCover = true
+            print("📂 Opening folder: \(relativePath)")
+        }
         #endif
     }
 }

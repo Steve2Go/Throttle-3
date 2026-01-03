@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		E702BE622F091C170001A48D /* KSPlayer in Frameworks */ = {isa = PBXBuildFile; platformFilter = ios; productRef = E702BE612F091C170001A48D /* KSPlayer */; };
 		E76AF1582F02ACF8001F45FB /* Transmission in Frameworks */ = {isa = PBXBuildFile; productRef = E76AF1572F02ACF8001F45FB /* Transmission */; };
 		E7D712E72EFE28CF00CF3BF4 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = E7D712E62EFE28CF00CF3BF4 /* KeychainAccess */; };
 /* End PBXBuildFile section */
@@ -86,7 +85,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				E76AF1582F02ACF8001F45FB /* Transmission in Frameworks */,
-				E702BE622F091C170001A48D /* KSPlayer in Frameworks */,
 				E7D712E72EFE28CF00CF3BF4 /* KeychainAccess in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -133,7 +131,6 @@
 			packageProductDependencies = (
 				E7D712E62EFE28CF00CF3BF4 /* KeychainAccess */,
 				E76AF1572F02ACF8001F45FB /* Transmission */,
-				E702BE612F091C170001A48D /* KSPlayer */,
 			);
 			productName = "Throttle 3";
 			productReference = E752CA8E2EF9FFDE00EA4E24 /* Throttle 3.app */;
@@ -166,7 +163,6 @@
 			packageReferences = (
 				E7D712E52EFE28CF00CF3BF4 /* XCRemoteSwiftPackageReference "KeychainAccess" */,
 				E76AF1562F02ACF8001F45FB /* XCLocalSwiftPackageReference "../../transmission-swift/Transmission-Swift" */,
-				E702BE602F091C170001A48D /* XCRemoteSwiftPackageReference "KSPlayer" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E752CA8F2EF9FFDE00EA4E24 /* Products */;
@@ -488,14 +484,6 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		E702BE602F091C170001A48D /* XCRemoteSwiftPackageReference "KSPlayer" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/kingslay/KSPlayer";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.3.4;
-			};
-		};
 		E7D712E52EFE28CF00CF3BF4 /* XCRemoteSwiftPackageReference "KeychainAccess" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kishikawakatsumi/KeychainAccess";
@@ -507,11 +495,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		E702BE612F091C170001A48D /* KSPlayer */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E702BE602F091C170001A48D /* XCRemoteSwiftPackageReference "KSPlayer" */;
-			productName = KSPlayer;
-		};
 		E76AF1572F02ACF8001F45FB /* Transmission */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Transmission;

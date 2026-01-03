@@ -10,9 +10,19 @@ import SwiftData
 import KeychainAccess
 import Network
 import Combine
+#if os(iOS)
+import KSPlayer
+#endif
 
 @main
 struct Throttle_3App: App {
+    
+    init() {
+        #if os(iOS)
+        // Initialize KSPlayer global options
+        KSOptions.secondPlayerType = KSMEPlayer.self
+        #endif
+    }
     
     @Environment(\.scenePhase) private var scenePhase
     
