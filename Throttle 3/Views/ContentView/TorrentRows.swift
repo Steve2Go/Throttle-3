@@ -504,6 +504,11 @@ struct TorrentRows: View {
                 Task {
                     await fetchTorrents()
                 }
+
+            } else{
+                Task {
+                    try StreamServerManager.shared.stopServer()
+                }
             }
         }
         .onChange(of: store.currentServerID){
@@ -512,6 +517,7 @@ struct TorrentRows: View {
             cancellables.removeAll()
             doFetch = false
             Task{
+                try StreamServerManager.shared.stopServer()
                 await fetchTorrents()
             }
         }
@@ -527,6 +533,7 @@ struct TorrentRows: View {
             Task {
                 await fetchTorrents()
             }
+            
         }
         .onChange(of:store.successIndicator){
             if store.successIndicator == true {
@@ -550,6 +557,8 @@ struct TorrentRows: View {
     // MARK: - Fetch Torrents
     
     func fetchTorrents() async {
+        
+
         guard let server = currentServer else {
             print("No server selected")
             return
@@ -570,6 +579,16 @@ struct TorrentRows: View {
             print("❌ Failed to establish tunnel for server: \(server.name)")
             return
         }
+        
+#if os(iOS)
+        Task {
+//            let isUp = await StreamServerManager.shared.isServerResponding()
+//            if !isUp {
+                try await StreamServerManager.shared.startServer(for: currentServer! ,localPort: 8080)
+//            }
+        }
+#endif
+        
         
         // Build Transmission URL using the tunnel port
         let scheme = "http"
