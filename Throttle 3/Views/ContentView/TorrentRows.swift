@@ -729,14 +729,6 @@ struct TorrentRows: View {
     
     private func handleThumbnailTap(torrent: Torrent) {
         guard let torrentName = torrent.name else { return }
-        
-        // Check if it's a video file
-        if isVideoFile(torrentName) {
-            // TODO: Handle video file playback
-            print("📹 Video file tapped: \(torrentName)")
-            return
-        }
-        
         guard let server = currentServer else { return }
         
         // Calculate the full path to the torrent folder
@@ -760,28 +752,39 @@ struct TorrentRows: View {
         
         // Open folder for non-video files
         #if os(macOS)
-        // Open in Finder
         guard let mountPath = SSHFSManager.shared.getMountPath(server) else {
             print("❌ No mount path available for server")
             return
         }
         
-        // Construct full path to torrent folder using relative path
+        // Construct full path to torrent folder/file using relative path
         let torrentPath = (mountPath as NSString).appendingPathComponent(relativePath)
         
-        // Check if path exists and open it
-        if FileManager.default.fileExists(atPath: torrentPath) {
-            NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: torrentPath)
+        // Check if it's a video file
+        if isVideoFile(torrentName) {
+            // Open video file with default player
+            if FileManager.default.fileExists(atPath: torrentPath) {
+                NSWorkspace.shared.open(URL(fileURLWithPath: torrentPath))
+                print("🎬 Opening video in default player: \(torrentPath)")
+            } else {
+                print("⚠️ Video file doesn't exist: \(torrentPath)")
+            }
         } else {
-            // Fallback to opening mount root
-            print("⚠️ Path doesn't exist: \(torrentPath), opening mount root")
-            NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: mountPath)
+            // Open folder in Finder
+            if FileManager.default.fileExists(atPath: torrentPath) {
+                NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: torrentPath)
+            } else {
+                // Fallback to opening mount root
+                print("⚠️ Path doesn't exist: \(torrentPath), opening mount root")
+                NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: mountPath)
+            }
         }
         #else
-        // Open in file browser on iOS with relative path
+        // Open in file browser on iOS
+        // TODO: For video files, implement video player
         store.fileBrowserPath = relativePath
         store.fileBrowserCover = true
-        print("📂 Opening folder: \(relativePath) (fullPath: \(fullPath))")
+        print("📂 Opening \(isVideoFile(torrentName) ? "video" : "folder"): \(relativePath) (fullPath: \(fullPath))")
         #endif
     }
 }

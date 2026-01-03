@@ -89,13 +89,13 @@ struct ServerList: View {
 //                hasAppeared = true
 //                #endif
                 
-                
+                if !onstartServer.isEmpty {
+                    selectedServerUUID = onstartServer
+                }
                 //auto connect
                 var uuid: UUID?
                 if !store.didLoad {
-                    if !onstartServer.isEmpty {
-                        uuid = UUID(uuidString: onstartServer)
-                    } else if !selectedServerUUID.isEmpty {
+                    if !selectedServerUUID.isEmpty {
                         uuid = UUID(uuidString: selectedServerUUID)
                     }
                     if uuid != nil,
