@@ -506,9 +506,11 @@ struct TorrentRows: View {
                 }
 
             } else{
+                #if os(iOS)
                 Task {
                     try StreamServerManager.shared.stopServer()
                 }
+                #endif
             }
         }
         .onChange(of: store.currentServerID){
@@ -517,7 +519,9 @@ struct TorrentRows: View {
             cancellables.removeAll()
             doFetch = false
             Task{
+                #if os(iOS)
                 try StreamServerManager.shared.stopServer()
+                #endif
                 await fetchTorrents()
             }
         }

@@ -12,7 +12,7 @@ import KeychainAccess
 #if os(iOS)
 import SshLib_iOS
 import TailscaleKit
-#endif
+
 
 enum StreamServerError: LocalizedError {
     case invalidProxyAddress
@@ -306,3 +306,4 @@ class StreamServerManager: ObservableObject {
     }
     #endif
 }
+#endif
