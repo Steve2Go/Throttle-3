@@ -403,6 +403,8 @@ struct TorrentRows: View {
                            let mountPath = SSHFSManager.shared.getMountPath(server) {
                             NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: mountPath)
                         }
+                        #else
+                        showFileBrowser = true
                         #endif
                     }) {
                         Image(systemName: "internaldrive")
@@ -454,8 +456,10 @@ struct TorrentRows: View {
             
         }
         .sheet(isPresented: $showFileBrowser) {
-    FileBrowserView(server: currentServer)
-}
+            if let currentServer = currentServer {
+                FileBrowserView(server: currentServer)
+            }
+        }
         .sheet(isPresented: $showingTorrentDetails) {
             if let torrent = selectedTorrent, let currentServer = currentServer {
                 TorrentDetailsView(torrent: torrent, server: currentServer)
