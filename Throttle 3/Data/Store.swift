@@ -30,6 +30,7 @@ class Store: NSObject, ObservableObject {
     @Published var needsRefresh = false
     @Published var fileBrowserSheet = false
     @Published var fileBrowserCover = false
+    @Published var fileBrowserPath: String? = nil
 //    @Published var currentServer: Servers?
         
 }

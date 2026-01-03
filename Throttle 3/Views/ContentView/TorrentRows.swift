@@ -145,47 +145,53 @@ struct TorrentRows: View {
                                     
                                 }
                                 if showThumbs {
-                                    HStack{
-                                        if let progress = torrent.progress, progress < 1.0 {
-                                            // Downloading
-                                            Image("folder")
-                                                .resizable()
-                                                .frame(maxWidth: 65,maxHeight:65)
-                                        } else if let thumbnail = thumbnailManager.getThumbnail(for: torrent) {
-                                            // Has cached thumbnail
+                                    Button {
+                                        handleThumbnailTap(torrent: torrent)
+                                    } label: {
+                                        HStack{
+                                            if let progress = torrent.progress, progress < 1.0 {
+                                                // Downloading
+                                                Image("folder")
+                                                    .resizable()
+                                                    .frame(maxWidth: 65,maxHeight:65)
+                                            } else if let thumbnail = thumbnailManager.getThumbnail(for: torrent) {
+                                                // Has cached thumbnail
 #if os(macOS)
-                                            Image(nsImage: thumbnail)
-                                                .resizable()
-                                                .scaledToFill()
+                                                Image(nsImage: thumbnail)
+                                                    .resizable()
+                                                    .scaledToFill()
 #else
-                                            Image(uiImage: thumbnail)
-                                                .resizable()
-                                                .scaledToFill()
+                                                Image(uiImage: thumbnail)
+                                                    .resizable()
+                                                    .scaledToFill()
 #endif
-                                        }  else {
-                                            // Complete but no thumbnail yet
-                                            Image("placeholder-black")
-                                                .font(.system(size: 40))
+                                            }  else {
+                                                // Complete but no thumbnail yet
+                                                Image("placeholder-black")
+                                                    .font(.system(size: 40))
+                                            }
+                                            
+                                            //status icon
+                                            
+                                            
                                         }
-                                        
-                                        //status icon
-                                        
-                                        
-                                    }
-                                    .frame(width: 70, height: 70)
-                                    //.background(Color.secondary.opacity(0.1))
-                                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                                    .onAppear {
-                                        if let hash = torrent.hash {
-                                            visibleTorrentHashes.insert(hash)
-                                            scheduleThumbnailGeneration()
+                                        .frame(width: 70, height: 70)
+                                        //.background(Color.secondary.opacity(0.1))
+                                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                                        .onAppear {
+                                            if let hash = torrent.hash {
+                                                visibleTorrentHashes.insert(hash)
+                                                scheduleThumbnailGeneration()
+                                            }
+                                        }
+                                        .onDisappear {
+                                            if let hash = torrent.hash {
+                                                visibleTorrentHashes.remove(hash)
+                                            }
                                         }
                                     }
-                                    .onDisappear {
-                                        if let hash = torrent.hash {
-                                            visibleTorrentHashes.remove(hash)
-                                        }
-                                    }
+                                    .buttonStyle(.plain)
+                                    
                                     Image(systemName: thumbnailManager.generatingHashes.contains(torrent.hash ?? "") ? "photo.badge.arrow.down.fill" : iconForStatus(torrent))
                                         .font(.system(size: 12, weight: .semibold))
                                         .foregroundStyle(.white)
@@ -454,9 +460,10 @@ struct TorrentRows: View {
             }
             
         }
+        #if os(iOS)
         .fullScreenCover(isPresented: $store.fileBrowserCover) {
             if let currentServer = currentServer {
-                FileBrowserView(server: currentServer)
+                FileBrowserView(server: currentServer, initialPath: store.fileBrowserPath)
             }
         }
         .sheet(isPresented: $store.fileBrowserSheet) {
@@ -464,6 +471,8 @@ struct TorrentRows: View {
                 FileBrowserView(server: currentServer)
             }
         }
+    
+        #endif
         .sheet(isPresented: $showingTorrentDetails) {
             if let torrent = selectedTorrent, let currentServer = currentServer {
                 TorrentDetailsView(torrent: torrent, server: currentServer)
@@ -714,6 +723,66 @@ struct TorrentRows: View {
         let videoExtensions = [".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".ogv"]
         let lowercasedName = name.lowercased()
         return videoExtensions.contains { lowercasedName.hasSuffix($0) }
+    }
+    
+    // MARK: - Thumbnail Tap Handler
+    
+    private func handleThumbnailTap(torrent: Torrent) {
+        guard let torrentName = torrent.name else { return }
+        
+        // Check if it's a video file
+        if isVideoFile(torrentName) {
+            // TODO: Handle video file playback
+            print("📹 Video file tapped: \(torrentName)")
+            return
+        }
+        
+        guard let server = currentServer else { return }
+        
+        // Calculate the full path to the torrent folder
+        let sftpBase = server.sftpBase.isEmpty ? "/" : server.sftpBase
+        let downloadPath = torrent.downloadPath ?? sftpBase
+        
+        // Append torrent name to get full folder path
+        // Example: downloadPath="/storage/downloads", name="mytorrent" -> fullPath="/storage/downloads/mytorrent"
+        let fullPath = (downloadPath as NSString).appendingPathComponent(torrentName)
+        
+        // Calculate relative path from sftpBase
+        // Example: sftpBase="/storage", fullPath="/storage/downloads/mytorrent" -> relativePath="/downloads/mytorrent"
+        var relativePath = fullPath
+        if fullPath.hasPrefix(sftpBase) {
+            relativePath = String(fullPath.dropFirst(sftpBase.count))
+            // Ensure it starts with /
+            if !relativePath.hasPrefix("/") {
+                relativePath = "/" + relativePath
+            }
+        }
+        
+        // Open folder for non-video files
+        #if os(macOS)
+        // Open in Finder
+        guard let mountPath = SSHFSManager.shared.getMountPath(server) else {
+            print("❌ No mount path available for server")
+            return
+        }
+        
+        // Construct full path to torrent folder using relative path
+        let torrentPath = (mountPath as NSString).appendingPathComponent(relativePath)
+        
+        // Check if path exists and open it
+        if FileManager.default.fileExists(atPath: torrentPath) {
+            NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: torrentPath)
+        } else {
+            // Fallback to opening mount root
+            print("⚠️ Path doesn't exist: \(torrentPath), opening mount root")
+            NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: mountPath)
+        }
+        #else
+        // Open in file browser on iOS with relative path
+        store.fileBrowserPath = relativePath
+        store.fileBrowserCover = true
+        print("📂 Opening folder: \(relativePath) (fullPath: \(fullPath))")
+        #endif
     }
 }
 

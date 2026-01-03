@@ -9,11 +9,18 @@ import SwiftUI
 
 struct FileBrowserView: View {
     let server: Servers
+    let initialPath: String?
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var store: Store
+    @State private var navigationPath: [NavigationFolder] = []
+    
+    init(server: Servers, initialPath: String? = nil) {
+        self.server = server
+        self.initialPath = initialPath
+    }
     
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             DirectoryContentView(
                 server: server,
                 path: server.sftpBase.isEmpty ? "/" : server.sftpBase,
@@ -25,6 +32,15 @@ struct FileBrowserView: View {
                     path: navFolder.path,
                     isRoot: false
                 )
+            }
+            .onAppear {
+                // Navigate to initial path if provided
+                if let initialPath = initialPath, !initialPath.isEmpty {
+                    let sftpBase = server.sftpBase.isEmpty ? "/" : server.sftpBase
+                    // Construct full path by combining base and relative path
+                    let fullPath = (sftpBase as NSString).appendingPathComponent(initialPath)
+                    navigationPath.append(NavigationFolder(path: fullPath))
+                }
             }
             .toolbar {
                 ToolbarItem {
@@ -89,7 +105,17 @@ struct DirectoryContentView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            if !isRoot {
+                ToolbarItem {
+                    Button {
+                        store.fileBrowserCover = false
+                        store.fileBrowserSheet = false
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                }
+            }
+            ToolbarItem {
                 Menu {
                     Button {
                         // TODO: Select mode
@@ -141,21 +167,16 @@ struct DirectoryContentView: View {
                 }
             }
             
-            if !isRoot {
-                ToolbarItem {
-                    Button {
-                        store.fileBrowserCover = false
-                        store.fileBrowserSheet = false
-                    } label: {
-                        Image(systemName: "xmark")
-                    }
-                }
-            }
+           
         }
         .task {
             await loadDirectory()
         }
+        .onDisappear {
+            store.fileBrowserPath = nil
+        }
     }
+    
     
     private var pathTitle: String {
         let effectiveRoot = server.sftpBase.isEmpty ? "/" : server.sftpBase
