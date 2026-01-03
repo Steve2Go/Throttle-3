@@ -15,7 +15,7 @@ import TailscaleKit
 #endif
 
 /// FileInfo represents remote file metadata
-struct SFTPFileInfo: Codable, Identifiable {
+struct SFTPFileInfo: Codable, Identifiable, Hashable {
     let name: String
     let size: Int64
     let isDirectory: Bool
@@ -24,6 +24,21 @@ struct SFTPFileInfo: Codable, Identifiable {
     
     var id: String { name }
     var modifiedDate: Date { Date(timeIntervalSince1970: TimeInterval(modifiedTime)) }
+    
+    // Hashable conformance
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(name)
+        hasher.combine(size)
+        hasher.combine(isDirectory)
+        hasher.combine(modifiedTime)
+    }
+    
+    static func == (lhs: SFTPFileInfo, rhs: SFTPFileInfo) -> Bool {
+        lhs.name == rhs.name &&
+        lhs.size == rhs.size &&
+        lhs.isDirectory == rhs.isDirectory &&
+        lhs.modifiedTime == rhs.modifiedTime
+    }
 }
 
 /// SFTPManager provides SFTP file operations using the SshLib framework

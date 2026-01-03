@@ -11,94 +11,168 @@ struct FileBrowserView: View {
     let server: Servers
     @Environment(\.dismiss) private var dismiss
     
-    @State private var currentPath: String
+    var body: some View {
+        NavigationStack {
+            DirectoryContentView(
+                server: server,
+                path: server.sftpBase.isEmpty ? "/" : server.sftpBase,
+                isRoot: true
+            )
+            .navigationDestination(for: NavigationFolder.self) { navFolder in
+                DirectoryContentView(
+                    server: server,
+                    path: navFolder.path,
+                    isRoot: false
+                )
+            }
+            .toolbar {
+                ToolbarItem {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Navigation Helper
+
+struct NavigationFolder: Hashable {
+    let path: String
+}
+
+// MARK: - Directory Content View
+
+struct DirectoryContentView: View {
+    let server: Servers
+    let path: String
+    let isRoot: Bool
+    
+    @Environment(\.dismiss) private var dismiss
     @State private var files: [SFTPFileInfo] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
-    @State private var navigationPath: [String] = []
     
     private let sftpManager = SFTPManager.shared
     
-    init(server: Servers) {
-        self.server = server
-        // Start at sftpBase if set, otherwise root
-        _currentPath = State(initialValue: server.sftpBase.isEmpty ? "/" : server.sftpBase)
-    }
-    
     var body: some View {
-        NavigationStack(path: $navigationPath) {
-            Group {
-                if isLoading && files.isEmpty {
-                    ProgressView("Loading...")
-                } else if let error = errorMessage {
-                    ContentUnavailableView {
-                        Label("Connection Error", systemImage: "exclamationmark.triangle")
-                    } description: {
-                        Text(error)
-                    } actions: {
-                        Button("Try Again") {
-                            Task {
-                                await loadDirectory()
-                            }
+        Group {
+            if isLoading && files.isEmpty {
+                ProgressView("Loading...")
+            } else if let error = errorMessage {
+                ContentUnavailableView {
+                    Label("Connection Error", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(error)
+                } actions: {
+                    Button("Try Again") {
+                        Task {
+                            await loadDirectory()
                         }
                     }
-                } else {
-                    fileListView
+                }
+            } else {
+                fileListView
+            }
+        }
+        .navigationTitle(pathTitle)
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button {
+                        // TODO: Select mode
+                    } label: {
+                        Label("Select", systemImage: "checkmark.circle")
+                    }
+                    
+                    Button {
+                        // TODO: New folder
+                    } label: {
+                        Label("New Folder", systemImage: "folder.badge.plus")
+                    }
+                    
+                    Button {
+                        // TODO: Upload
+                    } label: {
+                        Label("Upload", systemImage: "square.and.arrow.up")
+                    }
+                    
+                    Divider()
+                    
+                    Button {
+                        // TODO: Folders first toggle
+                    } label: {
+                        Label("Folders First", systemImage: "text.below.photo")
+                    }
+                    
+                    Button {
+                        // TODO: Icons view
+                    } label: {
+                        Label("Icons", systemImage: "square.grid.2x2")
+                    }
+                    
+                    Button {
+                        // TODO: List view
+                    } label: {
+                        Label("List", systemImage: "list.bullet")
+                    }
+                    
+                    Button {
+                        // TODO: Sort by name
+                    } label: {
+                        Label("Name", systemImage: "textformat")
+                    }
+                    
+                    Button {
+                        // TODO: Sort by date
+                    } label: {
+                        Label("Date", systemImage: "calendar")
+                    }
+                    
+                    Button {
+                        // TODO: Sort by size
+                    } label: {
+                        Label("Size", systemImage: "arrow.up.arrow.down")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
                 }
             }
-            .navigationTitle(pathTitle)
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
+            
+            if !isRoot {
+                ToolbarItem {
+                    Button {
                         dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
                     }
                 }
             }
-            .task {
-                await loadDirectory()
-            }
-            .navigationDestination(for: String.self) { newPath in
-                SubdirectoryView(
-                    server: server,
-                    currentPath: newPath,
-                    sftpManager: sftpManager
-                )
-            }
+        }
+        .task {
+            await loadDirectory()
         }
     }
     
     private var pathTitle: String {
-        if currentPath == "/" {
+        let effectiveRoot = server.sftpBase.isEmpty ? "/" : server.sftpBase
+        if path == effectiveRoot || path == "/" {
             return server.name
         }
-        return currentPath.split(separator: "/").last.map(String.init) ?? server.name
+        return path.split(separator: "/").last.map(String.init) ?? server.name
     }
     
     private var fileListView: some View {
         List {
-            // Parent directory button if not at root
-            if currentPath != "/" && currentPath != server.sftpBase {
-                Button {
-                    navigateUp()
-                } label: {
-                    FileRowView(
-                        name: "..",
-                        isDirectory: true,
-                        size: 0,
-                        isParent: true
-                    )
-                }
-            }
-            
-            // Files and folders
             ForEach(sortedFiles) { file in
                 if file.isDirectory {
-                    Button {
-                        navigateToFolder(file.name)
-                    } label: {
+                    NavigationLink(value: NavigationFolder(path: path.hasSuffix("/") ? path + file.name : path + "/" + file.name)) {
                         FileRowView(
                             name: file.name,
                             isDirectory: true,
@@ -133,29 +207,6 @@ struct FileBrowserView: View {
         }
     }
     
-    private func navigateToFolder(_ folderName: String) {
-        let newPath = currentPath.hasSuffix("/") 
-            ? currentPath + folderName 
-            : currentPath + "/" + folderName
-        navigationPath.append(newPath)
-    }
-    
-    private func navigateUp() {
-        if navigationPath.isEmpty {
-            // We're in the root view, go up one level
-            currentPath = (currentPath as NSString).deletingLastPathComponent
-            if currentPath.isEmpty {
-                currentPath = "/"
-            }
-            Task {
-                await loadDirectory()
-            }
-        } else {
-            // Pop navigation stack
-            navigationPath.removeLast()
-        }
-    }
-    
     private func loadDirectory() async {
         isLoading = true
         errorMessage = nil
@@ -163,107 +214,7 @@ struct FileBrowserView: View {
         do {
             let loadedFiles = try await sftpManager.listDirectory(
                 server: server,
-                remotePath: currentPath,
-                useTunnel: server.tunnelFilesOverSSH
-            )
-            files = loadedFiles
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-        
-        isLoading = false
-    }
-}
-
-// MARK: - Subdirectory View
-
-struct SubdirectoryView: View {
-    let server: Servers
-    let currentPath: String
-    let sftpManager: SFTPManager
-    
-    @State private var files: [SFTPFileInfo] = []
-    @State private var isLoading = false
-    @State private var errorMessage: String?
-    
-    var body: some View {
-        Group {
-            if isLoading && files.isEmpty {
-                ProgressView("Loading...")
-            } else if let error = errorMessage {
-                ContentUnavailableView {
-                    Label("Connection Error", systemImage: "exclamationmark.triangle")
-                } description: {
-                    Text(error)
-                } actions: {
-                    Button("Try Again") {
-                        Task {
-                            await loadDirectory()
-                        }
-                    }
-                }
-            } else {
-                fileListView
-            }
-        }
-        .navigationTitle(pathTitle)
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
-        .task {
-            await loadDirectory()
-        }
-    }
-    
-    private var pathTitle: String {
-        currentPath.split(separator: "/").last.map(String.init) ?? "Files"
-    }
-    
-    private var fileListView: some View {
-        List {
-            ForEach(sortedFiles) { file in
-                if file.isDirectory {
-                    NavigationLink(value: currentPath.hasSuffix("/") ? currentPath + file.name : currentPath + "/" + file.name) {
-                        FileRowView(
-                            name: file.name,
-                            isDirectory: true,
-                            size: file.size,
-                            isParent: false
-                        )
-                    }
-                } else {
-                    FileRowView(
-                        name: file.name,
-                        isDirectory: false,
-                        size: file.size,
-                        isParent: false
-                    )
-                }
-            }
-        }
-        .listStyle(.plain)
-        .refreshable {
-            await loadDirectory()
-        }
-    }
-    
-    private var sortedFiles: [SFTPFileInfo] {
-        files.sorted { file1, file2 in
-            if file1.isDirectory != file2.isDirectory {
-                return file1.isDirectory
-            }
-            return file1.name.localizedCaseInsensitiveCompare(file2.name) == .orderedAscending
-        }
-    }
-    
-    private func loadDirectory() async {
-        isLoading = true
-        errorMessage = nil
-        
-        do {
-            let loadedFiles = try await sftpManager.listDirectory(
-                server: server,
-                remotePath: currentPath,
+                remotePath: path,
                 useTunnel: server.tunnelFilesOverSSH
             )
             files = loadedFiles
