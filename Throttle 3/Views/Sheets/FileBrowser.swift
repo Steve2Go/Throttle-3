@@ -230,22 +230,24 @@ struct DirectoryContentView: View {
     }
     
     private var sortedFiles: [SFTPFileInfo] {
-        files.sorted { file1, file2 in
-            // Directories first if enabled
-            if foldersFirst && file1.isDirectory != file2.isDirectory {
-                return file1.isDirectory
+        files
+            .filter { !$0.name.hasPrefix(".") }
+            .sorted { file1, file2 in
+                // Directories first if enabled
+                if foldersFirst && file1.isDirectory != file2.isDirectory {
+                    return file1.isDirectory
+                }
+                
+                // Then sort by selected criteria
+                switch sortBy {
+                case "date":
+                    return file1.modifiedTime > file2.modifiedTime
+                case "size":
+                    return file1.size > file2.size
+                default: // "name"
+                    return file1.name.localizedCaseInsensitiveCompare(file2.name) == .orderedAscending
+                }
             }
-            
-            // Then sort by selected criteria
-            switch sortBy {
-            case "date":
-                return file1.modifiedTime > file2.modifiedTime
-            case "size":
-                return file1.size > file2.size
-            default: // "name"
-                return file1.name.localizedCaseInsensitiveCompare(file2.name) == .orderedAscending
-            }
-        }
     }
     
     private func loadDirectory() async {
