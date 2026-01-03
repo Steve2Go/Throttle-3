@@ -177,6 +177,7 @@ struct DirectoryContentView: View {
                             name: file.name,
                             isDirectory: true,
                             size: file.size,
+                            modifiedTime: file.modifiedTime,
                             isParent: false
                         )
                     }
@@ -185,6 +186,7 @@ struct DirectoryContentView: View {
                         name: file.name,
                         isDirectory: false,
                         size: file.size,
+                        modifiedTime: file.modifiedTime,
                         isParent: false
                     )
                 }
@@ -232,6 +234,7 @@ struct FileRowView: View {
     let name: String
     let isDirectory: Bool
     let size: Int64
+    let modifiedTime: Int64
     let isParent: Bool
     
     var body: some View {
@@ -247,7 +250,7 @@ struct FileRowView: View {
                     .foregroundColor(.primary)
                 
                 if !isParent && !isDirectory {
-                    Text(formattedSize)
+                    Text(formattedInfo)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -302,7 +305,14 @@ struct FileRowView: View {
         return Image("file-document")
     }
     
-    private var formattedSize: String {
-        ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
+    private var formattedInfo: String {
+        let date = Date(timeIntervalSince1970: TimeInterval(modifiedTime))
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "dd/MM/yyyy"
+        let dateString = dateFormatter.string(from: date)
+        
+        let sizeString = ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
+        
+        return "\(dateString) - \(sizeString)"
     }
 }
