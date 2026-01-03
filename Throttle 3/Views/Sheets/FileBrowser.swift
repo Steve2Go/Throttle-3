@@ -55,6 +55,7 @@ struct DirectoryContentView: View {
     @State private var files: [SFTPFileInfo] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @AppStorage("fileBrowserIconView") var icons: Bool = false
     
     private let sftpManager = SFTPManager.shared
     
@@ -110,19 +111,26 @@ struct DirectoryContentView: View {
                     } label: {
                         Label("Folders First", systemImage: "text.below.photo")
                     }
-                    
+                    Divider()
                     Button {
-                        // TODO: Icons view
+                        // Icons view
+                        icons = true
                     } label: {
+                        Image(systemName: icons ? "checkmark.circle" : "circle")
                         Label("Icons", systemImage: "square.grid.2x2")
                     }
                     
                     Button {
-                        // TODO: List view
+                        // List view
+                        icons = false
                     } label: {
-                        Label("List", systemImage: "list.bullet")
+                        HStack {
+                            Image(systemName: !icons ? "checkmark.circle" : "circle")
+                            Label("List", systemImage: "list.bullet")
+                        }
+                        
                     }
-                    
+                    Divider()
                     Button {
                         // TODO: Sort by name
                     } label: {
@@ -169,30 +177,64 @@ struct DirectoryContentView: View {
     }
     
     private var fileListView: some View {
-        List {
-            ForEach(sortedFiles) { file in
-                if file.isDirectory {
-                    NavigationLink(value: NavigationFolder(path: path.hasSuffix("/") ? path + file.name : path + "/" + file.name)) {
-                        FileRowView(
-                            name: file.name,
-                            isDirectory: true,
-                            size: file.size,
-                            modifiedTime: file.modifiedTime,
-                            isParent: false
-                        )
+        Group {
+            if icons {
+                ScrollView {
+                    LazyVGrid(columns: [
+                        GridItem(.adaptive(minimum: 100, maximum: 120), spacing: 16)
+                    ], spacing: 16) {
+                        ForEach(sortedFiles) { file in
+                            if file.isDirectory {
+                                NavigationLink(value: NavigationFolder(path: path.hasSuffix("/") ? path + file.name : path + "/" + file.name)) {
+                                    FileRowView(
+                                        name: file.name,
+                                        isDirectory: true,
+                                        size: file.size,
+                                        modifiedTime: file.modifiedTime,
+                                        isParent: false
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                FileRowView(
+                                    name: file.name,
+                                    isDirectory: false,
+                                    size: file.size,
+                                    modifiedTime: file.modifiedTime,
+                                    isParent: false
+                                )
+                            }
+                        }
                     }
-                } else {
-                    FileRowView(
-                        name: file.name,
-                        isDirectory: false,
-                        size: file.size,
-                        modifiedTime: file.modifiedTime,
-                        isParent: false
-                    )
+                    .padding()
                 }
+            } else {
+                List {
+                    ForEach(sortedFiles) { file in
+                        if file.isDirectory {
+                            NavigationLink(value: NavigationFolder(path: path.hasSuffix("/") ? path + file.name : path + "/" + file.name)) {
+                                FileRowView(
+                                    name: file.name,
+                                    isDirectory: true,
+                                    size: file.size,
+                                    modifiedTime: file.modifiedTime,
+                                    isParent: false
+                                )
+                            }
+                        } else {
+                            FileRowView(
+                                name: file.name,
+                                isDirectory: false,
+                                size: file.size,
+                                modifiedTime: file.modifiedTime,
+                                isParent: false
+                            )
+                        }
+                    }
+                }
+                .listStyle(.plain)
             }
         }
-        .listStyle(.plain)
         .refreshable {
             await loadDirectory()
         }
@@ -236,29 +278,50 @@ struct FileRowView: View {
     let size: Int64
     let modifiedTime: Int64
     let isParent: Bool
+    @AppStorage("fileBrowserIconView") var icons: Bool = false
     
     var body: some View {
-        HStack(spacing: 12) {
-            // Icon
-            fileIcon
-                .frame(width: 50, height: 50)
-            
-            // File info
-            VStack(alignment: .leading, spacing: 2) {
+        if icons {
+            VStack(spacing: 4) {
+                fileIcon
+                    .frame(width: 100, height: 100)
                 Text(name)
-                    .font(.body)
+                    .font(.caption)
                     .foregroundColor(.primary)
-                
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
                 if !isParent && !isDirectory {
                     Text(formattedInfo)
                         .font(.caption)
                         .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
                 }
             }
-            
-            Spacer()
+            .frame(maxWidth: .infinity)
+            .padding(8)
+        } else {
+            HStack(spacing: 12) {
+                // Icon
+                fileIcon
+                    .frame(width: 50, height: 50)
+                
+                // File info
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name)
+                        .font(.body)
+                        .foregroundColor(.primary)
+                    
+                    if !isParent && !isDirectory {
+                        Text(formattedInfo)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                Spacer()
+            }
+            .contentShape(Rectangle())
         }
-        .contentShape(Rectangle())
     }
     
     @ViewBuilder
@@ -313,6 +376,9 @@ struct FileRowView: View {
         
         let sizeString = ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
         
+        if icons {
+            return "\(dateString)\n\(sizeString)"
+        }
         return "\(dateString) - \(sizeString)"
     }
 }
