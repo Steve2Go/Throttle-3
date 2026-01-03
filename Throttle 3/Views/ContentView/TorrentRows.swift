@@ -39,8 +39,6 @@ struct TorrentRows: View {
     @State private var selectedTorrent: Torrent?
     @State private var showFilesPicker = false
     @State private var selectedTorrentForFiles: Int?
-    @State private var showFileBrowser = false
-    @State private var showFileBrowserSheet = false
     @Query var servers: [Servers]
     @State private var doFetch = false
     @AppStorage("refreshRate") var refreshRate = "30"
@@ -405,7 +403,7 @@ struct TorrentRows: View {
                             NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: mountPath)
                         }
                         #else
-                        showFileBrowser = true
+                        store.fileBrowserCover = true
                         #endif
                     }) {
                         Image(systemName: "internaldrive")
@@ -456,12 +454,12 @@ struct TorrentRows: View {
             }
             
         }
-        .fullScreenCover(isPresented: $showFileBrowser) {
+        .fullScreenCover(isPresented: $store.fileBrowserCover) {
             if let currentServer = currentServer {
                 FileBrowserView(server: currentServer)
             }
         }
-        .sheet(isPresented: $showFileBrowserSheet) {
+        .sheet(isPresented: $store.fileBrowserSheet) {
             if let currentServer = currentServer {
                 FileBrowserView(server: currentServer)
             }

@@ -28,6 +28,8 @@ class Store: NSObject, ObservableObject {
     @Published var successIndicator = false
     @Published var failIndicator = false
     @Published var needsRefresh = false
+    @Published var fileBrowserSheet = false
+    @Published var fileBrowserCover = false
 //    @Published var currentServer: Servers?
         
 }

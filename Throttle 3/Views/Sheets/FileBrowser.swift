@@ -10,6 +10,7 @@ import SwiftUI
 struct FileBrowserView: View {
     let server: Servers
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var store: Store
     
     var body: some View {
         NavigationStack {
@@ -28,7 +29,8 @@ struct FileBrowserView: View {
             .toolbar {
                 ToolbarItem {
                     Button {
-                        dismiss()
+                        store.fileBrowserCover = false
+                        store.fileBrowserSheet = false
                     } label: {
                         Image(systemName: "xmark")
                     }
@@ -52,10 +54,13 @@ struct DirectoryContentView: View {
     let isRoot: Bool
     
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var store: Store
     @State private var files: [SFTPFileInfo] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
     @AppStorage("fileBrowserIconView") var icons: Bool = false
+    @AppStorage("fileBrowserIconFoldersFirst") var foldersFirst: Bool = true
+    @AppStorage("fileBrowserSortBy") var sortBy: String = "name"
     
     private let sftpManager = SFTPManager.shared
     
@@ -106,48 +111,31 @@ struct DirectoryContentView: View {
                     
                     Divider()
                     
-                    Button {
-                        // TODO: Folders first toggle
-                    } label: {
+                    Toggle(isOn: $foldersFirst) {
                         Label("Folders First", systemImage: "text.below.photo")
                     }
+                    
                     Divider()
-                    Button {
-                        // Icons view
-                        icons = true
-                    } label: {
-                        Image(systemName: icons ? "checkmark.circle" : "circle")
+                    
+                    Picker("View Mode", selection: $icons) {
+                        Label("List", systemImage: "list.bullet")
+                            .tag(false)
                         Label("Icons", systemImage: "square.grid.2x2")
+                            .tag(true)
                     }
+                    .pickerStyle(.inline)
                     
-                    Button {
-                        // List view
-                        icons = false
-                    } label: {
-                        HStack {
-                            Image(systemName: !icons ? "checkmark.circle" : "circle")
-                            Label("List", systemImage: "list.bullet")
-                        }
-                        
-                    }
                     Divider()
-                    Button {
-                        // TODO: Sort by name
-                    } label: {
+                    
+                    Picker("Sort By", selection: $sortBy) {
                         Label("Name", systemImage: "textformat")
-                    }
-                    
-                    Button {
-                        // TODO: Sort by date
-                    } label: {
+                            .tag("name")
                         Label("Date", systemImage: "calendar")
-                    }
-                    
-                    Button {
-                        // TODO: Sort by size
-                    } label: {
+                            .tag("date")
                         Label("Size", systemImage: "arrow.up.arrow.down")
+                            .tag("size")
                     }
+                    .pickerStyle(.inline)
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
@@ -156,7 +144,8 @@ struct DirectoryContentView: View {
             if !isRoot {
                 ToolbarItem {
                     Button {
-                        dismiss()
+                        store.fileBrowserCover = false
+                        store.fileBrowserSheet = false
                     } label: {
                         Image(systemName: "xmark")
                     }
@@ -242,12 +231,20 @@ struct DirectoryContentView: View {
     
     private var sortedFiles: [SFTPFileInfo] {
         files.sorted { file1, file2 in
-            // Directories first
-            if file1.isDirectory != file2.isDirectory {
+            // Directories first if enabled
+            if foldersFirst && file1.isDirectory != file2.isDirectory {
                 return file1.isDirectory
             }
-            // Then alphabetical
-            return file1.name.localizedCaseInsensitiveCompare(file2.name) == .orderedAscending
+            
+            // Then sort by selected criteria
+            switch sortBy {
+            case "date":
+                return file1.modifiedTime > file2.modifiedTime
+            case "size":
+                return file1.size > file2.size
+            default: // "name"
+                return file1.name.localizedCaseInsensitiveCompare(file2.name) == .orderedAscending
+            }
         }
     }
     
